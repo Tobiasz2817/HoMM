@@ -130,43 +130,51 @@ int main()
 			}
 			else if (sdl_event.type == SDL_MOUSEBUTTONDOWN) // A key was pressed
 			{
-				int x, y;
-				Uint32 mousePos;
-				mousePos = SDL_GetMouseState(&x, &y);
-				
-				int i, j;
-				i = startPosX;
-				j = startPosY;
-				while (true)
+				switch (sdl_event.button.button) // Which key?
 				{
-					if (i > x)
-					{
-						i--;
-					}
-					if (j > y)
-					{
-						j--;
-					}
+					case SDL_BUTTON_LEFT: // Posting a quit message to the OS queue so it gets processed on the next step and closes the game
+						int x, y;
+						Uint32 mousePos;
+						mousePos = SDL_GetMouseState(&x, &y);
 
-					if (i < x)
-					{
-						i++;
-					}
-					if (j < y)
-					{
-						j++;
-					}
-					
-					PrintRect(renderer, texture, i, j, tex_width, tex_height);
+						int i, j;
+						i = startPosX;
+						j = startPosY;
+						while (true)
+						{
 
-					if (i == x && j == y)
-					{
+							if (i < x)
+							{
+								i++;
+							}
+							else if (i > x)
+							{
+								i--;
+							}
+
+							if (j < y)
+							{
+								j++;
+							}
+							else if (j > y)
+							{
+								j--;
+							}
+
+
+							PrintRect(renderer, texture, i, j, tex_width, tex_height);
+
+							if (i == x && j == y)
+							{
+								break;
+							}
+						}
+						startPosX = x;
+						startPosY = y;
+							break;
+					default:
 						break;
-					}
 				}
-				startPosX = x;
-				startPosY = y;
-
 			}
 			// More events here?
 		}
