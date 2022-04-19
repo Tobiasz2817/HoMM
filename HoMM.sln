@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.1.32328.378
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "HoMM", "HoMM\HoMM.vcxproj", "{A01B015C-5C36-42E0-A3E9-C801EEC4A967}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+		Debug|x86 = Debug|x86
+		Release|x64 = Release|x64
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{A01B015C-5C36-42E0-A3E9-C801EEC4A967}.Debug|x64.ActiveCfg = Debug|x64
+		{A01B015C-5C36-42E0-A3E9-C801EEC4A967}.Debug|x64.Build.0 = Debug|x64
+		{A01B015C-5C36-42E0-A3E9-C801EEC4A967}.Debug|x86.ActiveCfg = Debug|Win32
+		{A01B015C-5C36-42E0-A3E9-C801EEC4A967}.Debug|x86.Build.0 = Debug|Win32
+		{A01B015C-5C36-42E0-A3E9-C801EEC4A967}.Release|x64.ActiveCfg = Release|x64
+		{A01B015C-5C36-42E0-A3E9-C801EEC4A967}.Release|x64.Build.0 = Release|x64
+		{A01B015C-5C36-42E0-A3E9-C801EEC4A967}.Release|x86.ActiveCfg = Release|Win32
+		{A01B015C-5C36-42E0-A3E9-C801EEC4A967}.Release|x86.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {C48FD7C8-71E1-40CC-BA52-FAFB6F50F730}
+	EndGlobalSection
+EndGlobal
