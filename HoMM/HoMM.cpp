@@ -100,6 +100,8 @@ int main()
 
 	int startPosX = 400;
 	int startPosY = 500;
+
+	int i, j, x,y;
 	// The main loop
 	// Every iteration is a frame
 	PrintRect(renderer, texture, startPosX, startPosY, tex_width, tex_height);
@@ -133,11 +135,10 @@ int main()
 				switch (sdl_event.button.button) // Which key?
 				{
 					case SDL_BUTTON_LEFT: // Posting a quit message to the OS queue so it gets processed on the next step and closes the game
-						int x, y;
+						x, y = 0;
 						Uint32 mousePos;
 						mousePos = SDL_GetMouseState(&x, &y);
 
-						int i, j;
 						i = startPosX;
 						j = startPosY;
 						while (true)
