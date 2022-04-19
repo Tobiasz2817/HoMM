@@ -134,9 +134,6 @@ int main()
 				Uint32 mousePos;
 				mousePos = SDL_GetMouseState(&x, &y);
 				
-				printf("%i X: ", x);
-				printf("%i Y: ", y);
-
 				int i, j;
 				i = startPosX;
 				j = startPosY;
