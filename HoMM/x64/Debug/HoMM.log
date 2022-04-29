@@ -1,4 +1,2 @@
 ﻿  HoMM.cpp
-D:\D - GameDev Team Comunications\GitHub\GitHub Projects\Z - C Repository\HoMM\HoMM\HoMM.cpp(160,32): warning C4244: "argument": konwersja z "float" do "int", możliwa utrata danych
-D:\D - GameDev Team Comunications\GitHub\GitHub Projects\Z - C Repository\HoMM\HoMM\HoMM.cpp(160,30): warning C4244: "argument": konwersja z "float" do "int", możliwa utrata danych
   HoMM.vcxproj -> D:\D - GameDev Team Comunications\GitHub\GitHub Projects\Z - C Repository\HoMM\x64\Debug\HoMM.exe

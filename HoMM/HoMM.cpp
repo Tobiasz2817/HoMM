@@ -1,40 +1,30 @@
 ﻿#include <stdio.h>
+#include <string.h>
 #define SDL_MAIN_HANDLED
 #include "SDL2/SDL.h"
 #include "SDL2/SDL_image.h"
 
+#define CELLS_X 15
+#define CELLS_Y 11
 
-void DrawImage(SDL_Renderer* renderer, SDL_Texture* texture,int x, int y, int tex_width, int tex_height)
+#define CELL_SIZE 100
+
+int WINDOW_WIDTH = 15 * CELL_SIZE;
+int WINDOW_HEIGHT = 11 * CELL_SIZE;
+
+struct Board
 {
-	// Clearing the screen
-	SDL_RenderClear(renderer);
+	SDL_Texture* defaultTexture;
+	SDL_Texture* obstacleTexture;
 
-	// All drawing goes here
+	unsigned char cells[CELLS_Y][CELLS_X];
+};
+typedef struct Board Board;
 
-	// Let's draw a sample image
+void DrawImage(SDL_Renderer* renderer, SDL_Texture* texture, SDL_Rect rect);
+void SetRect(SDL_Rect* rect, int x, int y, int w, int h);
+void CreateBoard(Board* board);
 
-	// Here is the rectangle where the image will be on the screen
-	SDL_Rect rect;
-	rect.x = (int)round(x - tex_width / 2); // Counting from the image's center but that's up to you
-	rect.y = (int)round(y - tex_height / 2); // Counting from the image's center but that's up to you
-	rect.w = (int)tex_width;
-	rect.h = (int)tex_height;
-
-	SDL_RenderCopyEx(renderer, // Already know what is that
-		texture, // The image
-		nullptr, // A rectangle to crop from the original image. Since we need the whole image that can be left empty (nullptr)
-		&rect, // The destination rectangle on the screen.
-		0, // An angle in degrees for rotation
-		nullptr, // The center of the rotation (when nullptr, the rect center is taken)
-		SDL_FLIP_NONE); // We don't want to flip the image
-
-// Showing the screen to the player
-	SDL_RenderPresent(renderer);
-
-	// next frame...
-}
-int WINDOW_WIDTH = 1920;
-int WINDOW_HEIGHT = 1080;
 int main()
 {
 	// Init SDL libraries
@@ -53,11 +43,10 @@ int main()
 		printf("Can't initialize SDL image. Error: %s", SDL_GetError());
 		return -1;
 	}
-
 	// Creating the window 1920x1080 (could be any other size)
 	SDL_Window* window = SDL_CreateWindow("FirstSDL",
 		0, 0,
-		1920, 1080,
+		WINDOW_WIDTH, WINDOW_HEIGHT,
 		SDL_WINDOW_SHOWN);
 
 	if (!window)
@@ -69,32 +58,73 @@ int main()
 		return -1;
 
 	// Setting the color of an empty window (RGBA). You are free to adjust it.
-	SDL_SetRenderDrawColor(renderer, 20, 150, 39, 255);
+	SDL_SetRenderDrawColor(renderer, 128, 69, 69, 255);
 
-	// Loading an image
-	char image_path[] = "image.png";
+
 	// Here the surface is the information about the image. It contains the color data, width, height and other info.
-	SDL_Surface* surface = IMG_Load(image_path);
+	SDL_Surface* surface = IMG_Load("stickXd.png");
 	if (!surface)
 	{
-		printf("Unable to load an image %s. Error: %s", image_path, IMG_GetError());
+		printf("Unable to load an image %s. Error: %s", "stickXd.png", IMG_GetError());
 		return -1;
 	}
 
 	// Now we use the renderer and the surface to create a texture which we later can draw on the screen.
-	SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
-	if (!texture)
+	SDL_Texture* playerTexture = SDL_CreateTextureFromSurface(renderer, surface);
+	if (!playerTexture)
+	{
+		printf("Unable to create a texture. Error: %s", SDL_GetError());
+		return -1;
+	}
+	// Bye-bye the surface
+	SDL_FreeSurface(surface);
+	// Here the surface is the information about the image. It contains the color data, width, height and other info.
+	surface = IMG_Load("default.png");
+	if (!surface)
+	{
+		printf("Unable to load an image %s. Error: %s", "default.png", IMG_GetError());
+		return -1;
+	}
+
+	// Now we use the renderer and the surface to create a texture which we later can draw on the screen.
+	SDL_Texture* defaultTexture = SDL_CreateTextureFromSurface(renderer, surface);
+	if (!defaultTexture)
 	{
 		printf("Unable to create a texture. Error: %s", SDL_GetError());
 		return -1;
 	}
 
-	// In a moment we will get rid of the surface as we no longer need that. But let's keep the image dimensions.
-	int tex_width = surface->w;
-	int tex_height = surface->h;
+	// Bye-bye the surface
+	SDL_FreeSurface(surface);
+	// Here the surface is the information about the image. It contains the color data, width, height and other info.
+	surface = IMG_Load("obstacle.png");
+	if (!surface)
+	{
+		printf("Unable to load an image %s. Error: %s", "default.png", IMG_GetError());
+		return -1;
+	}
 
-	int destinyY = tex_width;
+	// Now we use the renderer and the surface to create a texture which we later can draw on the screen.
+	SDL_Texture* obstacleTexture = SDL_CreateTextureFromSurface(renderer, surface);
+	if (!obstacleTexture)
+	{
+		printf("Unable to create a texture. Error: %s", SDL_GetError());
+		return -1;
+	}
+
+	Board board;
+	board.defaultTexture = defaultTexture;
+	board.obstacleTexture = obstacleTexture;
+
+	// In a moment we will get rid of the surface as we no longer need that. But let's keep the image dimensions.
+	int tex_width = CELL_SIZE;
+	int tex_height = CELL_SIZE;
+
 	int destinyX = tex_height;
+	int destinyY = tex_width;
+
+	int cellDestinyX = 0;
+	int cellDestinyY = 0;
 
 	int maxDestinyReached = 2;
 
@@ -107,9 +137,12 @@ int main()
 
 
 	SDL_Event sdl_event;
+	SDL_Rect rect;
 
 	float deltaTime = 0.f;
 	float lastTick = 0.f;
+
+	CreateBoard(&board);
 
 	bool done = false;
 	// The main loop
@@ -150,6 +183,17 @@ int main()
 				{
 					case SDL_BUTTON_LEFT: // Posting a quit message to the OS queue so it gets processed on the next step and closes the game
 						SDL_GetMouseState(&destinyX, &destinyY);
+						cellDestinyX = destinyX / CELL_SIZE;
+						cellDestinyY = destinyY / CELL_SIZE;
+
+						/*printf("x: %i ", cellDestinyX);
+						printf("y: %i ", cellDestinyY);
+						printf("x: %i ", destinyX);
+						printf("y: %i ", destinyY);*/
+
+						destinyX = ((destinyX / CELL_SIZE) * CELL_SIZE) + CELL_SIZE/2;
+						destinyY = ((destinyY / CELL_SIZE) * CELL_SIZE) + CELL_SIZE/2;
+
 							break;
 					default:
 						break;
@@ -157,7 +201,24 @@ int main()
 			}
 		}
 
-		DrawImage(renderer,texture,x,y,tex_width,tex_height);
+		// Print on screen
+		SDL_RenderClear(renderer);
+
+		for (int i = 0; i < CELLS_Y; ++i)
+		{
+			for (int j = 0; j < CELLS_X; ++j)
+			{
+				SetRect(&rect, j * CELL_SIZE, i * CELL_SIZE, CELL_SIZE - 2, CELL_SIZE - 2);
+				DrawImage(renderer, board.cells[i][j] == 255 ? board.obstacleTexture : board.defaultTexture ,rect);
+			}
+		}
+
+		SetRect(&rect,(int)round(x - tex_width / 2), (int)round(y - tex_height / 2), (int)tex_width, (int)tex_height);
+		DrawImage(renderer,playerTexture,rect);
+
+		SDL_RenderPresent(renderer);
+
+
 
 		if (fabs(x - destinyX) >= maxDestinyReached) {
 			if (x > destinyX) {
@@ -193,4 +254,28 @@ int main()
 
 	// Done.
 	return 0;
+}
+void DrawImage(SDL_Renderer* renderer, SDL_Texture* texture,SDL_Rect rect)
+{
+	SDL_RenderCopyEx(renderer, // Already know what is that
+		texture, // The image
+		0, // A rectangle to crop from the original image. Since we need the whole image that can be left empty (nullptr)
+		&rect, // The destination rectangle on the screen.
+		0, // An angle in degrees for rotation
+		0, // The center of the rotation (when nullptr, the rect center is taken)
+		SDL_FLIP_NONE); // We don't want to flip the image
+}
+void CreateBoard(Board* board)
+{
+	memset(board->cells, 0, sizeof(board->cells));
+
+	board->cells[2][5] = 255;
+	board->cells[6][9] = 255;
+}
+void SetRect(SDL_Rect* rect,int x,int y, int w,int h)
+{
+	rect->x = x;
+	rect->y = y;
+	rect->w = w;
+	rect->h = h;
 }
