@@ -4,7 +4,7 @@
 #include "SDL2/SDL_image.h"
 
 
-void PrintRect(SDL_Renderer* renderer, SDL_Texture* texture,int x, int y, int tex_width, int tex_height)
+void DrawImage(SDL_Renderer* renderer, SDL_Texture* texture,int x, int y, int tex_width, int tex_height)
 {
 	// Clearing the screen
 	SDL_RenderClear(renderer);
@@ -33,7 +33,8 @@ void PrintRect(SDL_Renderer* renderer, SDL_Texture* texture,int x, int y, int te
 
 	// next frame...
 }
-
+int WINDOW_WIDTH = 1920;
+int WINDOW_HEIGHT = 1080;
 int main()
 {
 	// Init SDL libraries
@@ -92,22 +93,35 @@ int main()
 	int tex_width = surface->w;
 	int tex_height = surface->h;
 
+	int destinyY = tex_width;
+	int destinyX = tex_height;
+
+	int maxDestinyReached = 2;
+
+	float x = (float)WINDOW_WIDTH / 2.f;
+	float y = (float)WINDOW_WIDTH / 2.f;
+	float speed = 200.f;
+
 	// Bye-bye the surface
 	SDL_FreeSurface(surface);
 
-	bool done = false;
+
 	SDL_Event sdl_event;
 
-	int startPosX = 400;
-	int startPosY = 500;
+	float deltaTime = 0.f;
+	float lastTick = 0.f;
 
-	int i, j, x,y;
+	bool done = false;
 	// The main loop
 	// Every iteration is a frame
-	PrintRect(renderer, texture, startPosX, startPosY, tex_width, tex_height);
 	while (!done)
 	{
-		// Polling the messages from the OS.
+
+		float currentTick = (float)SDL_GetTicks() / 1000.f;
+		deltaTime = currentTick - lastTick;
+		lastTick = currentTick;
+
+		// Polling the messages from the OS.\
 		// That could be key downs, mouse movement, ALT+F4 or many others
 		while (SDL_PollEvent(&sdl_event))
 		{
@@ -135,49 +149,31 @@ int main()
 				switch (sdl_event.button.button) // Which key?
 				{
 					case SDL_BUTTON_LEFT: // Posting a quit message to the OS queue so it gets processed on the next step and closes the game
-						x, y = 0;
-						Uint32 mousePos;
-						mousePos = SDL_GetMouseState(&x, &y);
-
-						i = startPosX;
-						j = startPosY;
-						while (true)
-						{
-
-							if (i < x)
-							{
-								i++;
-							}
-							else if (i > x)
-							{
-								i--;
-							}
-
-							if (j < y)
-							{
-								j++;
-							}
-							else if (j > y)
-							{
-								j--;
-							}
-
-
-							PrintRect(renderer, texture, i, j, tex_width, tex_height);
-
-							if (i == x && j == y)
-							{
-								break;
-							}
-						}
-						startPosX = x;
-						startPosY = y;
+						SDL_GetMouseState(&destinyX, &destinyY);
 							break;
 					default:
 						break;
 				}
 			}
-			// More events here?
+		}
+
+		DrawImage(renderer,texture,x,y,tex_width,tex_height);
+
+		if (fabs(x - destinyX) >= maxDestinyReached) {
+			if (x > destinyX) {
+				x -= speed * deltaTime;
+			}
+			else {
+				x += speed * deltaTime;
+			}
+		}
+		if (fabs(y - destinyY) >= maxDestinyReached) {
+			if (y > destinyY) {
+				y -= speed * deltaTime;
+			}
+			else {
+				y += speed * deltaTime;
+			}
 		}
 	}
 
