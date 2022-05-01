@@ -12,18 +12,41 @@
 int WINDOW_WIDTH = 15 * CELL_SIZE;
 int WINDOW_HEIGHT = 11 * CELL_SIZE;
 
+struct Player
+{
+	SDL_Texture* texture;
+
+	int startPosX;
+	int startPosY;
+
+	// Direction
+	int destinyX;
+	int destinyY;
+	float speed;
+
+	// Current Cell
+	int currentCellX;
+	int currentCellY;
+};
+typedef struct Player Player;
 struct Board
 {
 	SDL_Texture* defaultTexture;
 	SDL_Texture* obstacleTexture;
 
 	unsigned char cells[CELLS_Y][CELLS_X];
+	unsigned char cellsGrassfire[CELLS_Y][CELLS_X];
 };
 typedef struct Board Board;
 
+SDL_Texture* SetTexture(SDL_Surface* surface, SDL_Renderer* renderer, const char* fileName);
+void CreateBoard(Board* board);
 void DrawImage(SDL_Renderer* renderer, SDL_Texture* texture, SDL_Rect rect);
 void SetRect(SDL_Rect* rect, int x, int y, int w, int h);
-void CreateBoard(Board* board);
+void SetSidesValue(Board* board, int i, int j, int B, bool& S);
+void SetNextCellTempDest(Board board, int& targetCellX, int& targetCellY, int& minValue, int currentCellX, int currentCellY);
+void MoveToCell(Board board, Player* player, bool& pathIsFinded, int targetCellX, int targetCellY);
+
 
 int main()
 {
@@ -60,77 +83,38 @@ int main()
 	// Setting the color of an empty window (RGBA). You are free to adjust it.
 	SDL_SetRenderDrawColor(renderer, 128, 69, 69, 255);
 
-
-	// Here the surface is the information about the image. It contains the color data, width, height and other info.
-	SDL_Surface* surface = IMG_Load("stickXd.png");
-	if (!surface)
-	{
-		printf("Unable to load an image %s. Error: %s", "stickXd.png", IMG_GetError());
-		return -1;
-	}
-
-	// Now we use the renderer and the surface to create a texture which we later can draw on the screen.
-	SDL_Texture* playerTexture = SDL_CreateTextureFromSurface(renderer, surface);
-	if (!playerTexture)
-	{
-		printf("Unable to create a texture. Error: %s", SDL_GetError());
-		return -1;
-	}
-	// Bye-bye the surface
-	SDL_FreeSurface(surface);
-	// Here the surface is the information about the image. It contains the color data, width, height and other info.
-	surface = IMG_Load("default.png");
-	if (!surface)
-	{
-		printf("Unable to load an image %s. Error: %s", "default.png", IMG_GetError());
-		return -1;
-	}
-
-	// Now we use the renderer and the surface to create a texture which we later can draw on the screen.
-	SDL_Texture* defaultTexture = SDL_CreateTextureFromSurface(renderer, surface);
-	if (!defaultTexture)
-	{
-		printf("Unable to create a texture. Error: %s", SDL_GetError());
-		return -1;
-	}
-
-	// Bye-bye the surface
-	SDL_FreeSurface(surface);
-	// Here the surface is the information about the image. It contains the color data, width, height and other info.
-	surface = IMG_Load("obstacle.png");
-	if (!surface)
-	{
-		printf("Unable to load an image %s. Error: %s", "default.png", IMG_GetError());
-		return -1;
-	}
-
-	// Now we use the renderer and the surface to create a texture which we later can draw on the screen.
-	SDL_Texture* obstacleTexture = SDL_CreateTextureFromSurface(renderer, surface);
-	if (!obstacleTexture)
-	{
-		printf("Unable to create a texture. Error: %s", SDL_GetError());
-		return -1;
-	}
-
-	Board board;
-	board.defaultTexture = defaultTexture;
-	board.obstacleTexture = obstacleTexture;
+	SDL_Surface* surface = nullptr;
 
 	// In a moment we will get rid of the surface as we no longer need that. But let's keep the image dimensions.
 	int tex_width = CELL_SIZE;
 	int tex_height = CELL_SIZE;
 
-	int destinyX = tex_height;
-	int destinyY = tex_width;
+	int targetCellX = 0;
+	int targetCellY = 0;
+	int finishCellX = 0;
+	int finishCellY = 0;
 
-	int cellDestinyX = 0;
-	int cellDestinyY = 0;
+	Player player;
+	player.destinyX = tex_height;
+	player.destinyY = tex_width;
+	player.speed = 200.f;
+	player.startPosX = 4;
+	player.startPosY = 3;
+
+	player.currentCellX = 0;
+	player.currentCellY = 0;
+
+	player.texture = SetTexture(surface, renderer, "stickXd.png");
+
+	Board board;
+	board.obstacleTexture = SetTexture(surface, renderer, "obstacle.png");
+	board.defaultTexture = SetTexture(surface, renderer, "default.png");
+
 
 	int maxDestinyReached = 2;
 
-	float x = (float)WINDOW_WIDTH / 2.f;
-	float y = (float)WINDOW_WIDTH / 2.f;
-	float speed = 200.f;
+	float x = (player.startPosX * CELL_SIZE) + (CELL_SIZE / 2);
+	float y = (player.startPosY * CELL_SIZE) + (CELL_SIZE / 2);
 
 	// Bye-bye the surface
 	SDL_FreeSurface(surface);
@@ -144,6 +128,9 @@ int main()
 
 	CreateBoard(&board);
 
+	bool pathIsFinded = false;
+	bool cellAreReached = true;
+	bool canMove = false;
 	bool done = false;
 	// The main loop
 	// Every iteration is a frame
@@ -153,6 +140,7 @@ int main()
 		float currentTick = (float)SDL_GetTicks() / 1000.f;
 		deltaTime = currentTick - lastTick;
 		lastTick = currentTick;
+
 
 		// Polling the messages from the OS.\
 		// That could be key downs, mouse movement, ALT+F4 or many others
@@ -166,80 +154,141 @@ int main()
 			{
 				switch (sdl_event.key.keysym.sym) // Which key?
 				{
-					case SDLK_ESCAPE: // Posting a quit message to the OS queue so it gets processed on the next step and closes the game
-						SDL_Event event;
-						event.type = SDL_QUIT;
-						event.quit.type = SDL_QUIT;
-						event.quit.timestamp = SDL_GetTicks();
-						SDL_PushEvent(&event);
-						break;
-					default:
-						break;
+				case SDLK_ESCAPE: // Posting a quit message to the OS queue so it gets processed on the next step and closes the game
+					SDL_Event event;
+					event.type = SDL_QUIT;
+					event.quit.type = SDL_QUIT;
+					event.quit.timestamp = SDL_GetTicks();
+					SDL_PushEvent(&event);
+					break;
+				default:
+					break;
 				}
 			}
 			else if (sdl_event.type == SDL_MOUSEBUTTONDOWN) // A key was pressed
 			{
 				switch (sdl_event.button.button) // Which key?
 				{
-					case SDL_BUTTON_LEFT: // Posting a quit message to the OS queue so it gets processed on the next step and closes the game
-						SDL_GetMouseState(&destinyX, &destinyY);
-						cellDestinyX = destinyX / CELL_SIZE;
-						cellDestinyY = destinyY / CELL_SIZE;
+				case SDL_BUTTON_LEFT:
+				{
+					int mousePosX, mousePosY = 0;
+					SDL_GetMouseState(&mousePosX, &mousePosY);
 
-						/*printf("x: %i ", cellDestinyX);
-						printf("y: %i ", cellDestinyY);
-						printf("x: %i ", destinyX);
-						printf("y: %i ", destinyY);*/
+					int targetX = mousePosX / tex_width;
+					int targetY = mousePosY / tex_height;
 
-						destinyX = ((destinyX / CELL_SIZE) * CELL_SIZE) + CELL_SIZE/2;
-						destinyY = ((destinyY / CELL_SIZE) * CELL_SIZE) + CELL_SIZE/2;
+					finishCellX = targetX;
+					finishCellY = targetY;
 
-							break;
-					default:
+					pathIsFinded = true;
+
+					CreateBoard(&board);
+
+					if (board.cells[targetY][targetX] == 255)
+					{
+						canMove = false;
 						break;
+					}
+
+					board.cells[targetY][targetX] = 1;
+
+					canMove = true;
+					bool S = true;
+					while (S)
+					{
+						S = false;
+						memcpy(board.cellsGrassfire, board.cells, sizeof(board.cells));
+						for (int i = 0; i < CELLS_Y; i++)
+						{
+							for (int j = 0; j < CELLS_X; j++)
+							{
+								int A = board.cellsGrassfire[i][j];
+								if (A != 255 && A != 0)
+								{
+									int B = A + 1;
+
+									if (j > 0)
+									{
+										SetSidesValue(&board, i, j - 1, B, S);
+									}
+									if (j < CELLS_X - 1)
+									{
+										SetSidesValue(&board, i, j + 1, B, S);
+									}
+									if (i > 0)
+									{
+										SetSidesValue(&board, i - 1, j, B, S);
+									}
+									if (i < CELLS_Y - 1)
+									{
+										SetSidesValue(&board, i + 1, j, B, S);
+									}
+								}
+							}
+						}
+					}
+					player.currentCellX = x / tex_width;
+					player.currentCellY = y / tex_height;
+
+					MoveToCell(board, &player, pathIsFinded, targetCellX, targetCellY);
+					break;
+				}
+				default:
+					break;
 				}
 			}
 		}
 
 		// Print on screen
+
 		SDL_RenderClear(renderer);
 
 		for (int i = 0; i < CELLS_Y; ++i)
 		{
 			for (int j = 0; j < CELLS_X; ++j)
 			{
-				SetRect(&rect, j * CELL_SIZE, i * CELL_SIZE, CELL_SIZE - 2, CELL_SIZE - 2);
-				DrawImage(renderer, board.cells[i][j] == 255 ? board.obstacleTexture : board.defaultTexture ,rect);
+				SetRect(&rect, j * tex_width, i * tex_height, tex_width - 2, tex_height - 2);
+				DrawImage(renderer, board.cells[i][j] == 255 ? board.obstacleTexture : board.defaultTexture, rect);
 			}
 		}
 
-		SetRect(&rect,(int)round(x - tex_width / 2), (int)round(y - tex_height / 2), (int)tex_width, (int)tex_height);
-		DrawImage(renderer,playerTexture,rect);
+		SetRect(&rect, (int)round(x - tex_width / 2), (int)round(y - tex_height / 2), (int)tex_width, (int)tex_height);
+		DrawImage(renderer, player.texture, rect);
 
 		SDL_RenderPresent(renderer);
 
+		if (canMove)
+		{
+			player.currentCellX = x / tex_width;
+			player.currentCellY = y / tex_height;
 
+			cellAreReached = true;
+			if (fabs(x - player.destinyX) >= maxDestinyReached) {
+				if (x > player.destinyX) {
+					x -= player.speed * deltaTime;
+				}
+				else {
+					x += player.speed * deltaTime;
+				}
 
-		if (fabs(x - destinyX) >= maxDestinyReached) {
-			if (x > destinyX) {
-				x -= speed * deltaTime;
+				cellAreReached = false;
 			}
-			else {
-				x += speed * deltaTime;
+			if (fabs(y - player.destinyY) >= maxDestinyReached) {
+				if (y > player.destinyY) {
+					y -= player.speed * deltaTime;
+				}
+				else {
+					y += player.speed * deltaTime;
+				}
+				cellAreReached = false;
 			}
-		}
-		if (fabs(y - destinyY) >= maxDestinyReached) {
-			if (y > destinyY) {
-				y -= speed * deltaTime;
-			}
-			else {
-				y += speed * deltaTime;
+
+			if (cellAreReached && pathIsFinded && (finishCellX != player.currentCellX || finishCellY != player.currentCellY))
+			{
+				MoveToCell(board, &player, pathIsFinded, targetCellX, targetCellY);
 			}
 		}
 	}
-
-	// If we reached here then the main loop stoped
-	// That means the game wants to quit
 
 	// Shutting down the renderer
 	SDL_DestroyRenderer(renderer);
@@ -255,7 +304,35 @@ int main()
 	// Done.
 	return 0;
 }
-void DrawImage(SDL_Renderer* renderer, SDL_Texture* texture,SDL_Rect rect)
+SDL_Texture* SetTexture(SDL_Surface* surface, SDL_Renderer* renderer, const char* fileName)
+{
+	surface = IMG_Load(fileName);
+	if (!surface)
+	{
+		printf("Unable to load an image %s. Error: %s", fileName, IMG_GetError());
+		return NULL;
+	}
+
+	// Now we use the renderer and the surface to create a texture which we later can draw on the screen.
+	SDL_Texture* newTexture = SDL_CreateTextureFromSurface(renderer, surface);
+	if (!newTexture)
+	{
+		printf("Unable to create a texture. Error: %s", SDL_GetError());
+		return NULL;
+	}
+	SDL_FreeSurface(surface);
+
+	return newTexture;
+}
+void SetRect(SDL_Rect* rect, int x, int y, int w, int h)
+{
+	rect->x = x;
+	rect->y = y;
+	rect->w = w;
+	rect->h = h;
+}
+
+void DrawImage(SDL_Renderer* renderer, SDL_Texture* texture, SDL_Rect rect)
 {
 	SDL_RenderCopyEx(renderer, // Already know what is that
 		texture, // The image
@@ -269,13 +346,103 @@ void CreateBoard(Board* board)
 {
 	memset(board->cells, 0, sizeof(board->cells));
 
-	board->cells[2][5] = 255;
-	board->cells[6][9] = 255;
+	board->cells[0][7] = 255;
+	board->cells[1][7] = 255;
+	board->cells[1][8] = 255;
+
+	board->cells[2][8] = 255;
+	board->cells[2][9] = 255;
+	board->cells[3][9] = 255;
+
+	board->cells[3][9] = 255;
+	board->cells[3][10] = 255;
+	board->cells[4][10] = 255;
+
+	board->cells[4][10] = 255;
+	board->cells[4][11] = 255;
+	board->cells[5][11] = 255;
+
+	board->cells[5][11] = 255;
+	board->cells[5][12] = 255;
+	board->cells[6][12] = 255;
+
+	board->cells[6][12] = 255;
+	board->cells[6][13] = 255;
+	board->cells[7][13] = 255;
+	board->cells[7][14] = 255;
+
+
+	board->cells[3][1] = 255;
+	board->cells[4][1] = 255;
+	board->cells[5][1] = 255;
+	board->cells[6][1] = 255; 
+	board->cells[7][1] = 255; 
+	board->cells[7][2] = 255;
+	board->cells[7][3] = 255;
+	board->cells[7][4] = 255;
+	board->cells[7][5] = 255;
+	board->cells[7][6] = 255;
+	board->cells[7][7] = 255;
+	board->cells[7][8] = 255;
+	board->cells[7][9] = 255;
+	board->cells[7][10] = 255;
+	board->cells[7][11] = 255;
+	board->cells[7][12] = 255;
 }
-void SetRect(SDL_Rect* rect,int x,int y, int w,int h)
+void SetSidesValue(Board* board, int i, int j, int B, bool& S)
 {
-	rect->x = x;
-	rect->y = y;
-	rect->w = w;
-	rect->h = h;
+	int x = board->cellsGrassfire[i][j];
+	if (x == 0)
+	{
+		board->cells[i][j] = B;
+		S = true;
+	}
+}
+void SetNextCellTempDest(Board board, int& targetCellX, int& targetCellY, int& minValue, int y, int x)
+{
+	int side = board.cells[y][x];
+
+	if (side < minValue && side != 0)
+	{
+		minValue = side;
+
+		targetCellX = x;
+		targetCellY = y;
+	}
+}
+void MoveToCell(Board board, Player* player, bool& pathIsFinded, int targetCellX, int targetCellY)
+{
+	int minValue = 255;
+
+	int currentCellX = player->currentCellX;
+	int currentCellY = player->currentCellY;
+
+	targetCellX = currentCellX;
+	targetCellY = currentCellY;
+
+	if (currentCellX > 0)
+	{
+		SetNextCellTempDest(board, targetCellX, targetCellY, minValue, currentCellY, (currentCellX - 1));
+	}
+	if (currentCellX < CELLS_X - 1)
+	{
+		SetNextCellTempDest(board, targetCellX, targetCellY, minValue, currentCellY, (currentCellX + 1));
+	}
+	if (currentCellY > 0)
+	{
+		SetNextCellTempDest(board, targetCellX, targetCellY, minValue, (currentCellY - 1), currentCellX);
+	}
+	if (currentCellY < CELLS_Y - 1)
+	{
+		SetNextCellTempDest(board, targetCellX, targetCellY, minValue, (currentCellY + 1), currentCellX);
+	}
+
+	if (minValue == 255)
+	{
+		pathIsFinded = false;
+	}
+
+	player->destinyX = (targetCellX * CELL_SIZE) + (CELL_SIZE / 2);
+	player->destinyY = (targetCellY * CELL_SIZE) + (CELL_SIZE / 2);
+
 }
