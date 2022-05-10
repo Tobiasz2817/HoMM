@@ -1,0 +1,13 @@
+﻿  HoMM.cpp
+D:\D - GameDev Team Comunications\GitHub\GitHub Projects\Z - C Repository\HoMM\HoMM\HoMM.cpp(47,10): warning C4244: "=": konwersja z "int" do "float", możliwa utrata danych
+D:\D - GameDev Team Comunications\GitHub\GitHub Projects\Z - C Repository\HoMM\HoMM\HoMM.cpp(90,63): warning C4244: "argument": konwersja z "float" do "int", możliwa utrata danych
+D:\D - GameDev Team Comunications\GitHub\GitHub Projects\Z - C Repository\HoMM\HoMM\HoMM.cpp(99,10): warning C4244: "inicjowanie": konwersja z "unsigned int" do "float", możliwa utrata danych
+D:\D - GameDev Team Comunications\GitHub\GitHub Projects\Z - C Repository\HoMM\HoMM\HoMM.cpp(100,10): warning C4244: "inicjowanie": konwersja z "unsigned int" do "float", możliwa utrata danych
+D:\D - GameDev Team Comunications\GitHub\GitHub Projects\Z - C Repository\HoMM\HoMM\HoMM.cpp(163,10): warning C4101: "cellX": lokalna zmienna, do której nie istnieje odwołanie
+  HoMM.vcxproj -> D:\D - GameDev Team Comunications\GitHub\GitHub Projects\Z - C Repository\HoMM\x64\Debug\HoMM.exe
+  D:\D - GameDev Team Comunications\GitHub\GitHub Projects\Z - C Repository\HoMM\HoMM\\SDL2\lib\dll\libjpeg-9.dll
+  D:\D - GameDev Team Comunications\GitHub\GitHub Projects\Z - C Repository\HoMM\HoMM\\SDL2\lib\dll\libpng16-16.dll
+  D:\D - GameDev Team Comunications\GitHub\GitHub Projects\Z - C Repository\HoMM\HoMM\\SDL2\lib\dll\SDL2.dll
+  D:\D - GameDev Team Comunications\GitHub\GitHub Projects\Z - C Repository\HoMM\HoMM\\SDL2\lib\dll\SDL2_image.dll
+  D:\D - GameDev Team Comunications\GitHub\GitHub Projects\Z - C Repository\HoMM\HoMM\\SDL2\lib\dll\zlib1.dll
+  5 File(s) copied
