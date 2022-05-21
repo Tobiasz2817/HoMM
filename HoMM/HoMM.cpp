@@ -116,6 +116,7 @@ struct Board
 typedef struct Board Board;
 
 void Grassfire(Board* board, Character* character);
+bool PathIsCorrect(Board* board, Vec2i position);
 void DrawCharacters(Character* characters, SDL_Renderer* renderer);
 void MoveToCell(Board board, Character* character);
 
@@ -309,6 +310,9 @@ int main()
 
 			if (cellAreReached && startGrassfire && playerTurn)
 			{
+				bool moveCurrentCell = true;
+				bool moveFinishCell = true;
+
 				CreateBoard(&board, playerCharacters, enemyCharacters);
 				Grassfire(&board, currentCharacter);
 
@@ -328,6 +332,7 @@ int main()
 				{
 					playerTurn = false;
 					currentCharacter = &enemyCharacters[currentCharacterIdx];
+
 					CreateBoard(&board, playerCharacters, enemyCharacters);
 					GenerateRandomDestination(currentCharacter, &board);
 				}
@@ -363,7 +368,6 @@ int main()
 void MoveToCell(Board board, Character* character)
 {
 	int minValue = 255;
-	int side = 0;
 
 	Vec2i currentCell = character->position.currentCell;
 
@@ -371,7 +375,7 @@ void MoveToCell(Board board, Character* character)
 
 	if (currentCell.x > 0)
 	{
-		side = board.cells[currentCell.y][(currentCell.x - 1)];
+		int side = board.cells[currentCell.y][(currentCell.x - 1)];
 
 		if (side < minValue && side != 0)
 		{
@@ -383,7 +387,7 @@ void MoveToCell(Board board, Character* character)
 	}
 	if (currentCell.x < CELLS_X - 1)
 	{
-		side = board.cells[currentCell.y][(currentCell.x + 1)];
+		int side = board.cells[currentCell.y][(currentCell.x + 1)];
 
 		if (side < minValue && side != 0)
 		{
@@ -395,7 +399,7 @@ void MoveToCell(Board board, Character* character)
 	}
 	if (currentCell.y > 0)
 	{
-		side = board.cells[(currentCell.y - 1)][currentCell.x];
+		int side = board.cells[(currentCell.y - 1)][currentCell.x];
 
 		if (side < minValue && side != 0)
 		{
@@ -407,7 +411,7 @@ void MoveToCell(Board board, Character* character)
 	}
 	if (currentCell.y < CELLS_Y - 1)
 	{
-		side = board.cells[(currentCell.y + 1)][currentCell.x];
+		int side = board.cells[(currentCell.y + 1)][currentCell.x];
 
 		if (side < minValue && side != 0)
 		{
@@ -417,7 +421,17 @@ void MoveToCell(Board board, Character* character)
 			newCurrentCell.y = (currentCell.y + 1);
 		}
 	}
-
+	
+	if (minValue == 255)
+	{
+		character->canMoveToCell = false;
+		character->isMoving = false;
+	}
+	else
+	{
+		character->canMoveToCell = true;
+		character->isMoving = true;
+	}
 
 	character->position.targetCell = { (newCurrentCell.x * CELL_SIZE) + (CELL_SIZE / 2), (newCurrentCell.y * CELL_SIZE) + (CELL_SIZE / 2) };
 
@@ -444,8 +458,11 @@ void GenerateObstacles(Board* board)
 			y = rand() % totalY + min.y;
 		}
 
+
 		board->obstacles[i] = { x , y };
+		
 	}
+
 }
 
 bool AreObstacleExsist(Board* board, int x, int y, int i)
@@ -563,6 +580,50 @@ void Grassfire(Board* board, Character* character)
 	}
 
 	MoveToCell(*board, character);
+
+}
+bool PathIsCorrect(Board* board, Vec2i position)
+{
+	bool xMove = true;
+	bool yMove = true;
+
+	// Check the grassfire correct 
+	for (int x = position.x - 1; x <= position.x + 1; x++)
+	{
+		if (x > 0 && x < CELLS_X - 1)
+		{
+			int cell = board->cells[position.y][x];
+			if (cell != 255 && cell != 0)
+			{
+				xMove = true;
+				break;
+			}
+			xMove = false;
+		}
+	}
+
+	for (int y = position.y - 1; y <= position.y + 1; y++)
+	{
+		if (y > 0 && y < CELLS_Y - 1)
+		{
+			
+			int cell = board->cells[y][position.x];
+			if (cell != 255 && cell != 0)
+			{
+				yMove = true;
+				break;
+			}
+
+			yMove = false;
+		}
+	}
+
+	if (!xMove && !yMove)
+	{
+		return false;
+	}
+
+	return true;
 }
 
 SDL_Texture* SetTexture(SDL_Surface* surface, SDL_Renderer* renderer, const char* fileName)
