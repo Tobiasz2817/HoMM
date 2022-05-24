@@ -23,5 +23,6 @@
     <Library Include="SDL2\lib\SDL2.lib" />
     <Library Include="SDL2\lib\SDL2_image.lib" />
     <Library Include="SDL2\lib\SDL2main.lib" />
+    <Library Include="SDL2\lib\SDL2_ttf.lib" />
   </ItemGroup>
 </Project>

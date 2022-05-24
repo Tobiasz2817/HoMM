@@ -1,11 +1,12 @@
 ﻿#include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
+
 #define SDL_MAIN_HANDLED
 #include "SDL2/SDL.h"
+#include "SDL2/SDL_ttf.h"
 #include "SDL2/SDL_image.h"
 
-#include <stdlib.h>
-#include <time.h>
 
 #define OBSTACLES_COUNT 10
 #define CHARACTERS_COUNT 8
@@ -99,7 +100,37 @@ void Image::Render(SDL_Renderer* renderer, Vec2f pos)
 		nullptr, // The center of the rotation (when nullptr, the rect center is taken)
 		SDL_FLIP_NONE); // We don't want to flip the image
 }
+struct UI
+{
+	Image UiImage;
+	SDL_Color color;
+	TTF_Font* font;
 
+	void InitUI(SDL_Renderer* renderer, TTF_Font* font_, SDL_Color color_, Vec2f pos, const char* text_);
+	void RenderUI(SDL_Renderer* renderer, Vec2f pos, const char* text_);
+};
+void UI::InitUI(SDL_Renderer* renderer,TTF_Font* font_, SDL_Color color_, Vec2f pos, const char* text_)
+{
+	font = font_;
+	color = color_;
+
+	SDL_Surface* text = TTF_RenderText_Solid(font_, text_, color_);
+	if (!text)
+	{
+		printf("Failed to render text: %s", TTF_GetError());
+		return;
+	}
+
+	UiImage.Init(pos, { text->w , text->h }, SDL_CreateTextureFromSurface(renderer, text));
+
+	SDL_FreeSurface(text);
+
+}
+void UI::RenderUI(SDL_Renderer* renderer, Vec2f pos,const char* text_)
+{
+	pos = { (pos.x * UiImage.size.y) / CELL_SIZE, (pos.y * UiImage.size.x) / CELL_SIZE };
+	UiImage.Render(renderer, pos);
+}
 
 struct Character
 {
@@ -211,7 +242,7 @@ Character* Team::GetCharacterTurn()
 }
 Character* Team::GetRanomCharacter()
 {
-	Vec2i ranomPos[CHARACTERS_COUNT];
+	/*Vec2i ranomPos[CHARACTERS_COUNT];
 
 	Character* currentCharacter = firstCharacter;
 	if (!currentCharacter) return nullptr;
@@ -246,7 +277,24 @@ Character* Team::GetRanomCharacter()
 		currentCharacter = currentCharacter->next;
 	}
 
-	printf("\n---------------\n");
+	printf("\n---------------\n");*/
+
+	int i = 0;
+	int indexPos = rand() % lengthTeam;
+
+	Character* currentCharacter = firstCharacter;
+	while (currentCharacter)
+	{
+		if (i == indexPos)
+		{
+			return currentCharacter;
+		}
+
+		currentCharacter = currentCharacter->next;
+
+		i++;
+	}
+
 
 
 	return nullptr;
@@ -375,11 +423,12 @@ bool Queue::IsEmpty()
 Queue Grassfire(Board* board, Character* character, bool isThereCharacter);
 void MoveToCell(Board board, Character* character);
 
-void SetRect(SDL_Rect* rect, int x, int y, int w, int h);
 SDL_Texture* SetTexture(SDL_Renderer* renderer, const char* fileName);
+TTF_Font* SetFont(const char* fontName, int size);
+
+void SetRect(SDL_Rect* rect, int x, int y, int w, int h);
 bool InitSDL(SDL_Renderer** renderer, SDL_Window** window);
 
-void DrawCharacters(Team characters, SDL_Renderer* renderer);
 void DrawImage(SDL_Renderer* renderer, SDL_Texture* texture, SDL_Rect rect);
 
 void CreateBoard(Board* board, Team playerCharacters, Team enemyCharacters);
@@ -392,15 +441,19 @@ void GenerateRandomDestination(Character* character, Board* board);
 
 int main()
 {
-	srand(time(NULL));
-
 	SDL_Window* window = nullptr;
 	SDL_Renderer* renderer = nullptr;
+
 	if (!InitSDL(&renderer, &window))
 	{
 		printf("Can't initialize SDL. Error: %s", SDL_GetError()); // SDL_GetError() returns a string (as const char*) which explains what went wrong with the last operation
 		return 0;
 	}
+
+	UI team1UI;
+	team1UI.InitUI(renderer, SetFont("Gemstone.ttf", 24), { 128, 128, 128 }, { 15,15 }, "Druzyna 1: ");
+
+
 
 	// In a moment we will get rid of the surface as we no longer need that. But let's keep the image dimensions.
 	int tex_width = CELL_SIZE;
@@ -540,9 +593,13 @@ int main()
 			}
 		}
 
+		
+
 		team1.DisplayCharacters(renderer);
 		team2.DisplayCharacters(renderer);
 
+
+		team1UI.RenderUI(renderer, { 1 , 0.5f });
 		//printf("\n ------- \n");
 
 		//return 0;
@@ -718,6 +775,9 @@ int main()
 	team2.Clear();
 
 	path.Clear();
+
+	TTF_CloseFont(team1UI.font);
+	TTF_Quit();
 
 	// Shutting down the renderer
 	SDL_DestroyRenderer(renderer);
@@ -930,32 +990,25 @@ SDL_Texture* SetTexture(SDL_Renderer* renderer, const char* fileName)
 
 	return newTexture;
 }
+TTF_Font* SetFont(const char* fontName, int size)
+{
+	if (TTF_Init() < 0) {
+		printf("Error initializing SDL_ttf: %s", TTF_GetError());
+	}
+
+	TTF_Font* font = TTF_OpenFont(fontName, size);
+	if (!font) {
+		printf("Failed to load font: %s", TTF_GetError());
+	}
+
+	return font;
+}
 void SetRect(SDL_Rect* rect, int x, int y, int w, int h)
 {
 	rect->x = x;
 	rect->y = y;
 	rect->w = w;
 	rect->h = h;
-}
-void DrawCharacters(Team characters, SDL_Renderer* renderer)
-{
-
-	Character* currentCharacter = characters.firstCharacter;
-	while (!currentCharacter)
-	{
-		SDL_Rect rect;
-		rect.x = (int)round(currentCharacter->characterImage.position.x - currentCharacter->characterImage.size.x / 2);
-		rect.y = (int)round(currentCharacter->characterImage.position.y - currentCharacter->characterImage.size.y / 2);
-		rect.w = currentCharacter->characterImage.size.x;
-		rect.h = currentCharacter->characterImage.size.y;
-
-		DrawImage(renderer, currentCharacter->characterImage.texture, rect);
-
-		currentCharacter = currentCharacter->next;
-	}
-
-
-
 }
 void DrawImage(SDL_Renderer* renderer, SDL_Texture* texture, SDL_Rect rect)
 {
@@ -976,6 +1029,11 @@ bool InitSDL(SDL_Renderer** renderer, SDL_Window** window)
 	if (result) // SDL_Init returns 0 (false) when everything is OK
 	{
 		printf("Can't initialize SDL. Error: %s", SDL_GetError()); // SDL_GetError() returns a string (as const char*) which explains what went wrong with the last operation
+		return false;
+	}
+
+	if (TTF_Init() < 0) {
+		printf("Error initializing SDL_ttf: %s", TTF_GetError());
 		return false;
 	}
 

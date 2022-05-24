@@ -1,14 +1,13 @@
 ﻿  HoMM.cpp
-D:\D - GameDev Team Comunications\GitHub\GitHub Projects\Z - C Repository\HoMM\HoMM\HoMM.cpp(89,17): warning C4244: "=": konwersja z "ufloat" do "int", możliwa utrata danych
 D:\D - GameDev Team Comunications\GitHub\GitHub Projects\Z - C Repository\HoMM\HoMM\HoMM.cpp(90,17): warning C4244: "=": konwersja z "ufloat" do "int", możliwa utrata danych
-D:\D - GameDev Team Comunications\GitHub\GitHub Projects\Z - C Repository\HoMM\HoMM\HoMM.cpp(125,10): warning C4244: "=": konwersja z "int" do "float", możliwa utrata danych
-D:\D - GameDev Team Comunications\GitHub\GitHub Projects\Z - C Repository\HoMM\HoMM\HoMM.cpp(395,12): warning C4244: "argument": konwersja z "time_t" do "unsigned int", możliwa utrata danych
-D:\D - GameDev Team Comunications\GitHub\GitHub Projects\Z - C Repository\HoMM\HoMM\HoMM.cpp(420,85): warning C4244: "argument": konwersja z "float" do "int", możliwa utrata danych
-D:\D - GameDev Team Comunications\GitHub\GitHub Projects\Z - C Repository\HoMM\HoMM\HoMM.cpp(431,88): warning C4244: "argument": konwersja z "float" do "int", możliwa utrata danych
-D:\D - GameDev Team Comunications\GitHub\GitHub Projects\Z - C Repository\HoMM\HoMM\HoMM.cpp(464,27): warning C4838: konwersja z „uint” do „ufloat” wymaga konwersji zawężającej
-D:\D - GameDev Team Comunications\GitHub\GitHub Projects\Z - C Repository\HoMM\HoMM\HoMM.cpp(464,27): warning C4244: "inicjowanie": konwersja z "uint" do "ufloat", możliwa utrata danych
-D:\D - GameDev Team Comunications\GitHub\GitHub Projects\Z - C Repository\HoMM\HoMM\HoMM.cpp(464,37): warning C4838: konwersja z „uint” do „ufloat” wymaga konwersji zawężającej
-D:\D - GameDev Team Comunications\GitHub\GitHub Projects\Z - C Repository\HoMM\HoMM\HoMM.cpp(464,37): warning C4244: "inicjowanie": konwersja z "uint" do "ufloat", możliwa utrata danych
+D:\D - GameDev Team Comunications\GitHub\GitHub Projects\Z - C Repository\HoMM\HoMM\HoMM.cpp(91,17): warning C4244: "=": konwersja z "ufloat" do "int", możliwa utrata danych
+D:\D - GameDev Team Comunications\GitHub\GitHub Projects\Z - C Repository\HoMM\HoMM\HoMM.cpp(156,10): warning C4244: "=": konwersja z "int" do "float", możliwa utrata danych
+D:\D - GameDev Team Comunications\GitHub\GitHub Projects\Z - C Repository\HoMM\HoMM\HoMM.cpp(473,85): warning C4244: "argument": konwersja z "float" do "int", możliwa utrata danych
+D:\D - GameDev Team Comunications\GitHub\GitHub Projects\Z - C Repository\HoMM\HoMM\HoMM.cpp(484,88): warning C4244: "argument": konwersja z "float" do "int", możliwa utrata danych
+D:\D - GameDev Team Comunications\GitHub\GitHub Projects\Z - C Repository\HoMM\HoMM\HoMM.cpp(517,27): warning C4838: konwersja z „uint” do „ufloat” wymaga konwersji zawężającej
+D:\D - GameDev Team Comunications\GitHub\GitHub Projects\Z - C Repository\HoMM\HoMM\HoMM.cpp(517,27): warning C4244: "inicjowanie": konwersja z "uint" do "ufloat", możliwa utrata danych
+D:\D - GameDev Team Comunications\GitHub\GitHub Projects\Z - C Repository\HoMM\HoMM\HoMM.cpp(517,37): warning C4838: konwersja z „uint” do „ufloat” wymaga konwersji zawężającej
+D:\D - GameDev Team Comunications\GitHub\GitHub Projects\Z - C Repository\HoMM\HoMM\HoMM.cpp(517,37): warning C4244: "inicjowanie": konwersja z "uint" do "ufloat", możliwa utrata danych
   HoMM.vcxproj -> D:\D - GameDev Team Comunications\GitHub\GitHub Projects\Z - C Repository\HoMM\x64\Debug\HoMM.exe
   D:\D - GameDev Team Comunications\GitHub\GitHub Projects\Z - C Repository\HoMM\HoMM\\SDL2\lib\dll\libjpeg-9.dll
   D:\D - GameDev Team Comunications\GitHub\GitHub Projects\Z - C Repository\HoMM\HoMM\\SDL2\lib\dll\libpng16-16.dll
