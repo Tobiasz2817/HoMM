@@ -3,6 +3,7 @@
 #define SDL_MAIN_HANDLED
 #include "SDL2/SDL.h"
 #include "SDL2/SDL_image.h"
+
 #include <stdlib.h>
 #include <time.h>
 
@@ -21,6 +22,9 @@
 int WINDOW_WIDTH = 15 * CELL_SIZE;
 int WINDOW_HEIGHT = 11 * CELL_SIZE;
 
+
+
+
 typedef int uint;
 struct Vec2i
 {
@@ -38,22 +42,27 @@ struct Vec2f
 {
 	ufloat x;
 	ufloat y;
-
-	bool operator==(Vec2f right)
-	{
-		return x == right.x && y == right.y;
-	}
 };
+
+enum World
+{
+	_Character = 253,
+	_Obstacle = 255,
+
+};
+
+struct Attributes
+{
+	float health;
+	float attackPower;
+};
+
 struct Position
 {
-	// Start Position player
-	Vec2i startPos;
+	Vec2f currentPosition;
 
 	// Current Cell
 	Vec2i currentCell;
-
-	// Target Cell
-	Vec2i targetCell;
 
 	// Finish Cell
 	Vec2i finishCell;
@@ -66,6 +75,7 @@ struct Image
 	SDL_Texture* texture;
 
 	void Init(Vec2f pos, Vec2i size, SDL_Texture* texture);
+	void Render(SDL_Renderer* renderer, Vec2f pos);
 };
 void Image::Init(Vec2f pos, Vec2i s, SDL_Texture* tex)
 {
@@ -73,35 +83,225 @@ void Image::Init(Vec2f pos, Vec2i s, SDL_Texture* tex)
 	size = s;
 	texture = tex;
 }
+void Image::Render(SDL_Renderer* renderer, Vec2f pos)
+{
+	SDL_Rect rect;
+	rect.x = pos.x * size.x;
+	rect.y = pos.y * size.y;
+	rect.w = size.x;
+	rect.h = size.y;
+
+	SDL_RenderCopyEx(renderer, // Already know what is that
+		texture, // The image
+		nullptr, // A rectangle to crop from the original image. Since we need the whole image that can be left empty (nullptr)
+		&rect, // The destination rectangle on the screen.
+		0, // An angle in degrees for rotation
+		nullptr, // The center of the rotation (when nullptr, the rect center is taken)
+		SDL_FLIP_NONE); // We don't want to flip the image
+}
+
 
 struct Character
 {
 	float speed;
 	bool canMoveToCell;
-	bool isMoving;
+	bool myTurn;
 
+	Attributes attributes;
 	Position position;
 	Image characterImage;
 
-	void Init(Image image, int speedPlayer, bool canMoveToCel_, bool isMoving_, Vec2i startPos);
+	Character* next;
+
+	void Init(Vec2i size, SDL_Texture* texture, int speedPlayer, bool canMoveToCel_, Vec2i startPos, Attributes attributes);
+	void Render(SDL_Renderer* renderer);
 };
 typedef struct Character Character;
 
-void Character::Init(Image image, int speedPlayer, bool canMoveToCel_, bool isMoving_, Vec2i startPos)
+void Character::Init(Vec2i size, SDL_Texture* texture, int speedPlayer, bool canMoveToCel_, Vec2i startPos, Attributes attributesCharacter)
 {
-	characterImage = image;
+	myTurn = true;
+
 	speed = speedPlayer;
-
+	attributes = attributesCharacter;
 	canMoveToCell = canMoveToCel_;
-	isMoving = isMoving_;
-
-	position.startPos = startPos;
-
-	position.targetCell = { (position.startPos.x * CELL_SIZE) + (CELL_SIZE / 2) , (position.startPos.y * CELL_SIZE) + (CELL_SIZE / 2) };
-
-	characterImage.position = { (float)position.targetCell.x, (float)position.targetCell.y };
 
 	position.currentCell = startPos;
+	position.currentPosition = { (ufloat)(startPos.x * CELL_SIZE) , (ufloat)(startPos.y * CELL_SIZE) };
+
+	characterImage.Init( { position.currentPosition.x , position.currentPosition.y } , size, texture);
+}
+void Character::Render(SDL_Renderer* renderer)
+{
+	characterImage.Render(renderer, { position.currentPosition.x / CELL_SIZE , position.currentPosition.y / CELL_SIZE } );
+}
+
+
+struct Team
+{
+
+	int lengthTeam = 0;
+	Character* firstCharacter = nullptr;
+
+	void DeleteFirstCharacter();
+	void AddCharacter(Vec2i size, SDL_Texture* texture, int speedPlayer, bool canMoveToCel_, Vec2i startPos, Attributes attributes);
+
+	void DisplayCharacters(SDL_Renderer* renderer);
+	void TakeDamage(float damage);
+	float CheckHealth();
+	
+	Character* GetCharacterTurn();
+	Character* GetRanomCharacter();
+
+	void Clear();
+
+	bool ExistCharacter(Vec2i position);
+};
+
+void Team::DeleteFirstCharacter()
+{
+	Character* next_character = firstCharacter->next;
+	free(firstCharacter);
+	firstCharacter = next_character; 
+}
+void Team::AddCharacter(Vec2i size, SDL_Texture* texture, int speedPlayer, bool canMoveToCel_, Vec2i startPos, Attributes attributes)
+{
+	Character* new_character = (Character*)malloc(sizeof(Character));
+	new_character->next = nullptr;
+
+	new_character->Init(size, texture, speedPlayer, canMoveToCel_, startPos, attributes);
+	lengthTeam += 1;
+	if (!firstCharacter)
+	{
+		firstCharacter = new_character;
+		return;
+	}
+
+	Character* last_element = firstCharacter;
+	while (last_element->next)
+		last_element = last_element->next;
+
+	last_element->next = new_character;
+
+}
+Character* Team::GetCharacterTurn()
+{
+	Character* currentCharacter = firstCharacter;
+	while (currentCharacter)
+	{
+		if (currentCharacter->myTurn)
+		{
+			currentCharacter->myTurn = false;
+
+			return currentCharacter;
+		}
+
+		currentCharacter = currentCharacter->next;
+	}
+
+	currentCharacter = firstCharacter;
+	while (currentCharacter)
+	{
+		currentCharacter->myTurn = true;
+
+		currentCharacter = currentCharacter->next;
+	}
+
+	return firstCharacter;
+}
+Character* Team::GetRanomCharacter()
+{
+	Vec2i ranomPos[CHARACTERS_COUNT];
+
+	Character* currentCharacter = firstCharacter;
+	if (!currentCharacter) return nullptr;
+
+	for (int i = 0; i < CHARACTERS_COUNT; i++)
+	{
+
+		ranomPos[i] = currentCharacter->position.currentCell;
+
+
+		currentCharacter = currentCharacter->next;
+		if (!currentCharacter)
+			break;
+	}
+	for (int i = 0; i < CHARACTERS_COUNT; i++)
+	{
+		printf("\n x: %i y: %i \n" ,ranomPos[i].x, ranomPos[i].y);
+	}
+
+	int indexPos = rand() % lengthTeam;
+
+	printf("\n x: %i \n",indexPos);
+
+	currentCharacter = firstCharacter;
+	while (currentCharacter)
+	{
+		if (currentCharacter->position.currentCell == ranomPos[indexPos])
+		{
+			return currentCharacter;
+		}
+
+		currentCharacter = currentCharacter->next;
+	}
+
+	printf("\n---------------\n");
+
+
+	return nullptr;
+}
+void Team::DisplayCharacters(SDL_Renderer* renderer)
+{
+	Character* currentCharacter = firstCharacter;
+	while (currentCharacter)
+	{
+		currentCharacter->Render(renderer);
+
+		currentCharacter = currentCharacter->next;
+	}
+}
+void Team::TakeDamage(float damage)
+{
+	if (!firstCharacter) return;
+
+	float restLife = firstCharacter->attributes.health - damage;
+
+	firstCharacter->attributes.health = restLife;
+
+	if (restLife < 0)
+	{
+		if (firstCharacter->next)
+		{
+			firstCharacter->next->attributes.health = restLife;
+		}
+	}
+}
+float Team::CheckHealth()
+{
+	return firstCharacter->attributes.health;
+}
+bool Team::ExistCharacter(Vec2i position)
+{
+	Character* currentCharacter = firstCharacter;
+	while (currentCharacter)
+	{
+		if (currentCharacter->position.currentCell == position)
+		{
+			return true;
+		}
+
+		currentCharacter = currentCharacter->next;
+	}
+
+	return false;
+}
+void Team::Clear()
+{
+	while (!firstCharacter)
+	{
+		DeleteFirstCharacter();
+	}
 }
 struct Board
 {
@@ -115,22 +315,80 @@ struct Board
 };
 typedef struct Board Board;
 
-void Grassfire(Board* board, Character* character);
-bool PathIsCorrect(Board* board, Vec2i position);
-void DrawCharacters(Character* characters, SDL_Renderer* renderer);
+struct ListNode
+{
+	ListNode* nextNode;
+	Vec2i position;
+};
+
+struct Queue
+{
+	void AddNode(Vec2i nodePosition);
+	bool IsEmpty();
+	void DeleteFirstNode();
+	void Clear();
+
+	ListNode* firstNode = nullptr;
+};
+
+
+void Queue::DeleteFirstNode()
+{
+	ListNode* next_node = firstNode->nextNode;
+	free(firstNode);
+	firstNode = next_node;
+
+}
+void Queue::Clear()
+{
+	while (firstNode)
+	{
+		DeleteFirstNode();
+	}
+}
+
+void Queue::AddNode(Vec2i nodePosition)
+{
+	ListNode* new_node = (ListNode*)malloc(sizeof(ListNode));
+	new_node->nextNode = nullptr;
+	new_node->position = nodePosition;
+
+	if (!firstNode)
+	{
+		firstNode = new_node;
+		return;
+	}
+
+	ListNode* last_element = firstNode;
+	while (last_element->nextNode)
+		last_element = last_element->nextNode;
+
+	last_element->nextNode = new_node;
+}
+
+
+bool Queue::IsEmpty()
+{
+	return !firstNode;
+}
+
+Queue Grassfire(Board* board, Character* character, bool isThereCharacter);
 void MoveToCell(Board board, Character* character);
 
 void SetRect(SDL_Rect* rect, int x, int y, int w, int h);
-SDL_Texture* SetTexture(SDL_Surface* surface, SDL_Renderer* renderer, const char* fileName);
+SDL_Texture* SetTexture(SDL_Renderer* renderer, const char* fileName);
 bool InitSDL(SDL_Renderer** renderer, SDL_Window** window);
 
-void DrawCharacters(Character* characters, SDL_Renderer* renderer);
+void DrawCharacters(Team characters, SDL_Renderer* renderer);
 void DrawImage(SDL_Renderer* renderer, SDL_Texture* texture, SDL_Rect rect);
 
-void CreateBoard(Board* board, Character* playerCharacters, Character* enemyCharacters);
+void CreateBoard(Board* board, Team playerCharacters, Team enemyCharacters);
 void GenerateObstacles(Board* board);
-bool AreObstacleExsist(Board* board, int x, int y, int i);
+void GenerateRandomDestination(Character* character, Board* board, Vec2i& newPos);
+bool AreObstacleExsist(Board* board, Vec2i pos, int i);
 void GenerateRandomDestination(Character* character, Board* board);
+
+
 
 int main()
 {
@@ -143,63 +401,67 @@ int main()
 		printf("Can't initialize SDL. Error: %s", SDL_GetError()); // SDL_GetError() returns a string (as const char*) which explains what went wrong with the last operation
 		return 0;
 	}
-	SDL_Surface* surface = nullptr;
 
 	// In a moment we will get rid of the surface as we no longer need that. But let's keep the image dimensions.
 	int tex_width = CELL_SIZE;
 	int tex_height = CELL_SIZE;
 
-	float secounds = 1;
+	//Image characterImage;
+	//characterImage.Init({ 0,0 }, { tex_width,tex_height }, SetTexture(surface, renderer, "stickXd.png"));
+	//
+	//Image enemyImage;
+	//enemyImage.Init({ 0,0 }, { tex_width,tex_height }, SetTexture(surface, renderer, "stickEnemy.png"));
 
-
-	Image characterImage;
-	characterImage.Init({ 0,0 }, { tex_width,tex_height }, SetTexture(surface, renderer, "stickXd.png"));
-
+	Team team1;
 	int StartPosX = 0;
 	int StartPosY = 0;
-	Character playerCharacters[CHARACTERS_COUNT];
 	for (int i = 0; i < CHARACTERS_COUNT; i++)
 	{
-		playerCharacters[i].Init(characterImage, 200.f, false, false, { StartPosX, StartPosY });
+		team1.AddCharacter({ tex_width,tex_height }, SetTexture(renderer, "stickXd.png"), 5.f, false, { StartPosX, StartPosY } ,{ 100.f , 85.f} );
 
 		StartPosY++;
 	}
 
-	Image enemyImage;
-	enemyImage.Init({ 0,0 }, { tex_width,tex_height }, SetTexture(surface, renderer, "stickEnemy.png"));
 
+	Team team2;
 	StartPosX = CELLS_X - 1;
 	StartPosY = 0;
-	Character enemyCharacters[CHARACTERS_COUNT];
 	for (int i = 0; i < CHARACTERS_COUNT; i++)
 	{
-		enemyCharacters[i].Init(enemyImage, 200.f, false, false, { StartPosX, StartPosY });
+		team2.AddCharacter({ tex_width,tex_height }, SetTexture(renderer, "stickEnemy.png"), 5.f, false, { StartPosX, StartPosY }, { 100.f , 50.f });
 
 		StartPosY++;
 	}
+
+
+	printf(" %i length team 1", team1.lengthTeam);
+	printf(" %i length team 2", team2.lengthTeam);
 
 	Board board;
 	GenerateObstacles(&board);
-	CreateBoard(&board, playerCharacters, enemyCharacters);
+	CreateBoard(&board, team1, team2);
 
-	board.obstacleTexture = SetTexture(surface, renderer, "obstacle.png");
-	board.defaultTexture = SetTexture(surface, renderer, "default.png");
+	board.obstacleTexture = SetTexture(renderer, "obstacle.png");
+	board.defaultTexture = SetTexture(renderer, "default.png");
 
+	bool posReached = true;
 
 	bool startCounting = false;
 
 	bool playerTurn = true;
-	int currentCharacterIdx = 0;
-	Character* currentCharacter = &playerCharacters[0];
+	bool finalNodeReached = false;
 
-	int maxDestinyReached = 2;
+	int currentCharacterIdx = 0;
+	Character* currentCharacter = team1.GetCharacterTurn();
+
+	int maxDestinyReached = 1;
 
 	float deltaTime = 0.f;
 	float lastTick = 0.f;
 
-	// Bye-bye the surface
-	SDL_FreeSurface(surface);
-
+	Queue path;
+	Vec2i point = currentCharacter->position.currentCell;
+	Vec2f direction = { point.x , point.y } ;
 
 	SDL_Event sdl_event;
 	SDL_Rect rect;
@@ -207,6 +469,8 @@ int main()
 	bool startGrassfire = false;
 	bool cellAreReached = true;
 	bool done = false;
+	bool gameOver = false;
+
 	// The main loop
 	// Every iteration is a frame
 	while (!done)
@@ -244,26 +508,24 @@ int main()
 			{
 				switch (sdl_event.button.button) // Which key?
 				{
-				case SDL_BUTTON_LEFT:
-				{
-					int mousePosX, mousePosY = 0;
-					SDL_GetMouseState(&mousePosX, &mousePosY);
+					case SDL_BUTTON_LEFT:
+					{
+						int mousePosX, mousePosY = 0;
+						SDL_GetMouseState(&mousePosX, &mousePosY);
 
-					if (currentCharacter->isMoving)
-						break;
+						currentCharacter->position.finishCell = { mousePosX / tex_width , mousePosY / tex_height };
 
-					currentCharacter->position.finishCell = { mousePosX / tex_width , mousePosY / tex_height };
-
-					currentCharacter->canMoveToCell = true;
-					startGrassfire = true;
-
-					break;
-				}
+						currentCharacter->canMoveToCell = true;
+						startGrassfire = true;	
+					}
+				break;
 				default:
 					break;
 				}
 			}
+
 		}
+
 
 		// Print on screen
 
@@ -274,82 +536,188 @@ int main()
 			for (int j = 0; j < CELLS_X; ++j)
 			{
 				SetRect(&rect, j * tex_width, i * tex_height, tex_width - 2, tex_height - 2);
-				DrawImage(renderer, board.cellsWithoutCharacters[i][j] == 255 ? board.obstacleTexture : board.defaultTexture, rect);
+				DrawImage(renderer, board.cellsWithoutCharacters[i][j] == _Obstacle ? board.obstacleTexture : board.defaultTexture, rect);
 			}
 		}
 
-		DrawCharacters(playerCharacters, renderer);
-		DrawCharacters(enemyCharacters, renderer);
+		team1.DisplayCharacters(renderer);
+		team2.DisplayCharacters(renderer);
+
+		//printf("\n ------- \n");
+
+		//return 0;
 
 		SDL_RenderPresent(renderer);
 
-		if (currentCharacter->canMoveToCell)
+		if (!gameOver)
 		{
-			currentCharacter->position.currentCell = { ((uint)(currentCharacter->characterImage.position.x / CELL_SIZE)), ((uint)(currentCharacter->characterImage.position.y / CELL_SIZE)) };
 
-			cellAreReached = true;
-			if (fabs(currentCharacter->characterImage.position.x - currentCharacter->position.targetCell.x) >= maxDestinyReached) {
-				if (currentCharacter->characterImage.position.x > currentCharacter->position.targetCell.x) {
-					currentCharacter->characterImage.position.x -= currentCharacter->speed * deltaTime;
-				}
-				else {
-					currentCharacter->characterImage.position.x += currentCharacter->speed * deltaTime;
-				}
-
-				cellAreReached = false;
-			}
-			if (fabs(currentCharacter->characterImage.position.y - currentCharacter->position.targetCell.y) >= maxDestinyReached) {
-				if (currentCharacter->characterImage.position.y > currentCharacter->position.targetCell.y) {
-					currentCharacter->characterImage.position.y -= currentCharacter->speed * deltaTime;
-				}
-				else {
-					currentCharacter->characterImage.position.y += currentCharacter->speed * deltaTime;
-				}
-				cellAreReached = false;
-			}
-
-			if (cellAreReached && startGrassfire && playerTurn)
+			if (playerTurn && finalNodeReached)
 			{
-				bool moveCurrentCell = true;
-				bool moveFinishCell = true;
+				printf(" \n Zmiana na 1 gracz do kurwy nędzy \n");
 
-				CreateBoard(&board, playerCharacters, enemyCharacters);
-				Grassfire(&board, currentCharacter);
+
+				currentCharacter = team1.GetCharacterTurn();
+
+				if (!team1.firstCharacter)
+				{
+					// Team2 dead
+					printf("\n Game Over Win Team 2 \n");
+					gameOver = true;
+					continue;
+				}
+
+				finalNodeReached = false;
+			}
+			else if (!playerTurn && finalNodeReached)
+			{
+				printf(" \n Zmiana na 2 gracz do kurwy nędzy \n");
+
+
+				currentCharacter = team2.GetCharacterTurn();
+
+
+				if (!team2.firstCharacter)
+				{
+					// Team2 dead
+					printf("\n Game Over Win Team 1 \n");
+					gameOver = true;
+					continue;
+				}
+
+
+
+				finalNodeReached = false;
+			}
+
+			if (startGrassfire)
+			{
+				// follow to team 2
+				if (!team1.ExistCharacter(currentCharacter->position.finishCell) && playerTurn)
+				{
+					CreateBoard(&board, team1, team2);
+					path = Grassfire(&board, currentCharacter, team2.ExistCharacter(currentCharacter->position.finishCell));
+
+					if (!path.firstNode)
+					{
+						currentCharacter->canMoveToCell = false;
+
+						printf(" First node are null ");
+						startGrassfire = false;
+						continue;
+					}
+
+					printf("\n I move to cursor \n");
+
+				}
+				else if (!playerTurn)
+				{
+					CreateBoard(&board, team1, team2);
+
+					Character* positionRandomCharacter = team1.GetRanomCharacter();
+					if (!positionRandomCharacter)
+					{
+						gameOver = true;
+						continue;
+					}
+					currentCharacter->position.finishCell = positionRandomCharacter->position.currentCell;
+
+					path = Grassfire(&board, currentCharacter, team1.ExistCharacter(currentCharacter->position.finishCell));
+
+					if (!path.firstNode)
+					{
+						currentCharacter->canMoveToCell = false;
+
+						printf(" First node are null ");
+						startGrassfire = true;
+						continue;
+					}
+
+					currentCharacter->canMoveToCell = true;
+				}
+				else
+				{
+					currentCharacter->canMoveToCell = false;
+				}
 
 				startGrassfire = false;
 			}
 
+			
 
-			if (cellAreReached && !(currentCharacter->position.currentCell == currentCharacter->position.finishCell))
+
+			if (currentCharacter->canMoveToCell)
 			{
-				MoveToCell(board, currentCharacter);
-			}
-			else if (cellAreReached && currentCharacter->isMoving && currentCharacter->position.currentCell == currentCharacter->position.finishCell)
-			{
-				currentCharacter->isMoving = false;
-				currentCharacter->position.currentCell = currentCharacter->position.finishCell;
-				if (playerTurn)
+				currentCharacter->position.currentCell = { (int)round(currentCharacter->position.currentPosition.x / CELL_SIZE), (int)round(currentCharacter->position.currentPosition.y / CELL_SIZE) };
+				if (!path.IsEmpty())
 				{
-					playerTurn = false;
-					currentCharacter = &enemyCharacters[currentCharacterIdx];
 
-					CreateBoard(&board, playerCharacters, enemyCharacters);
-					GenerateRandomDestination(currentCharacter, &board);
+					if (posReached)
+					{
+						point = path.firstNode->position;
+						direction = { point.x - currentCharacter->position.currentPosition.x, point.y - currentCharacter->position.currentPosition.y };
+						posReached = false;
+					}
+
+					currentCharacter->position.currentPosition.x += direction.x * currentCharacter->speed * deltaTime;
+					currentCharacter->position.currentPosition.y += direction.y * currentCharacter->speed * deltaTime;
+
+					if (fabs(currentCharacter->position.currentPosition.x - point.x) < maxDestinyReached && fabs(currentCharacter->position.currentPosition.y - point.y) < maxDestinyReached)
+					{
+						posReached = true;
+						path.DeleteFirstNode();
+					}
+
+
+					finalNodeReached = false;
 				}
 				else
 				{
-					playerTurn = true;
-					currentCharacterIdx++;
-					if (currentCharacterIdx == CHARACTERS_COUNT)
+					finalNodeReached = true;
+					currentCharacter->canMoveToCell = false;
+
+					if (team1.ExistCharacter(currentCharacter->position.finishCell) && !playerTurn)
 					{
-						currentCharacterIdx = 0;
+						team1.TakeDamage(currentCharacter->attributes.attackPower);
+
+						printf(" \n team 1 health: %f \n", team1.CheckHealth());
+						if (team1.CheckHealth() <= 0)
+						{
+							team1.DeleteFirstCharacter();
+							team1.lengthTeam -= 1;
+						}
 					}
-					currentCharacter = &playerCharacters[currentCharacterIdx];
+					else if (team2.ExistCharacter(currentCharacter->position.finishCell) && playerTurn)
+					{
+						team2.TakeDamage(currentCharacter->attributes.attackPower);
+						printf(" \n team 2 health: %f \n", team2.CheckHealth());
+						if (team2.CheckHealth() <= 0)
+						{
+							team2.DeleteFirstCharacter();
+							team2.lengthTeam -= 1;
+						}
+					}
+
+
+					playerTurn = !playerTurn;
+
+					if (!playerTurn)
+					{
+						printf("\n start Grassfire \n");
+						startGrassfire = true;
+					}
+
+					printf("\n path is empty\n");
 				}
 			}
-
 		}
+
 	}
+
+	team1.Clear();
+	team2.Clear();
+
+	path.Clear();
 
 	// Shutting down the renderer
 	SDL_DestroyRenderer(renderer);
@@ -364,77 +732,6 @@ int main()
 
 	// Done.
 	return 0;
-}
-void MoveToCell(Board board, Character* character)
-{
-	int minValue = 255;
-
-	Vec2i currentCell = character->position.currentCell;
-
-	Vec2i newCurrentCell = currentCell;
-
-	if (currentCell.x > 0)
-	{
-		int side = board.cells[currentCell.y][(currentCell.x - 1)];
-
-		if (side < minValue && side != 0)
-		{
-			minValue = side;
-
-			newCurrentCell.x = (currentCell.x - 1);
-			newCurrentCell.y = currentCell.y;
-		}
-	}
-	if (currentCell.x < CELLS_X - 1)
-	{
-		int side = board.cells[currentCell.y][(currentCell.x + 1)];
-
-		if (side < minValue && side != 0)
-		{
-			minValue = side;
-
-			newCurrentCell.x = (currentCell.x + 1);
-			newCurrentCell.y = currentCell.y;
-		}
-	}
-	if (currentCell.y > 0)
-	{
-		int side = board.cells[(currentCell.y - 1)][currentCell.x];
-
-		if (side < minValue && side != 0)
-		{
-			minValue = side;
-
-			newCurrentCell.x = currentCell.x;
-			newCurrentCell.y = (currentCell.y - 1);
-		}
-	}
-	if (currentCell.y < CELLS_Y - 1)
-	{
-		int side = board.cells[(currentCell.y + 1)][currentCell.x];
-
-		if (side < minValue && side != 0)
-		{
-			minValue = side;
-
-			newCurrentCell.x = currentCell.x;
-			newCurrentCell.y = (currentCell.y + 1);
-		}
-	}
-	
-	if (minValue == 255)
-	{
-		character->canMoveToCell = false;
-		character->isMoving = false;
-	}
-	else
-	{
-		character->canMoveToCell = true;
-		character->isMoving = true;
-	}
-
-	character->position.targetCell = { (newCurrentCell.x * CELL_SIZE) + (CELL_SIZE / 2), (newCurrentCell.y * CELL_SIZE) + (CELL_SIZE / 2) };
-
 }
 void GenerateObstacles(Board* board)
 {
@@ -452,7 +749,7 @@ void GenerateObstacles(Board* board)
 	{
 		int x = rand() % totalX + min.x;
 		int y = rand() % totalY + min.y;
-		while (AreObstacleExsist(board, x, y, i))
+		while (AreObstacleExsist(board, { x ,y } , i))
 		{
 			x = rand() % totalX + min.x;
 			y = rand() % totalY + min.y;
@@ -464,66 +761,59 @@ void GenerateObstacles(Board* board)
 	}
 
 }
-
-bool AreObstacleExsist(Board* board, int x, int y, int i)
+bool AreObstacleExsist(Board* board, Vec2i pos, int i)
 {
 	for (int j = 0; j < i; ++j)
 	{
-		if (x == board->obstacles[j].x && y == board->obstacles[j].y)
+		if (pos.x == board->obstacles[j].x && pos.y == board->obstacles[j].y)
 		{
 			return true;
 		}
 	}
 	return false;
 }
-
-void GenerateRandomDestination(Character* character, Board* board)
-{
-	int x = rand() % CELLS_X;
-	int y = rand() % CELLS_Y;
-	while (board->cells[y][x] == 255)
-	{
-		x = rand() % CELLS_X;
-		y = rand() % CELLS_Y;
-	}
-
-	character->position.finishCell = { x , y };
-
-	Grassfire(board, character);
-}
-void CreateBoard(Board* board, Character* playerCharacters, Character* enemyCharacters)
+void CreateBoard(Board* board, Team playerCharacters, Team enemyCharacters)
 {
 	memset(board->cells, 0, sizeof(board->cells));
 
 	// Set the obstacle data
 	for (int i = 0; i < OBSTACLES_COUNT; ++i)
 	{
-		board->cells[board->obstacles[i].y][board->obstacles[i].x] = 255;
+		board->cells[board->obstacles[i].y][board->obstacles[i].x] = _Obstacle;
 	}
 
 	memcpy(board->cellsWithoutCharacters, board->cells, sizeof(board->cells));
 
-	// Characters as obstacles
-	for (int i = 0; i < CHARACTERS_COUNT; ++i)
+
+	Character* currentCharacter = playerCharacters.firstCharacter;
+
+	while (currentCharacter)
 	{
-		board->cells[playerCharacters[i].position.currentCell.y][playerCharacters[i].position.currentCell.x] = 255;
+		board->cells[currentCharacter->position.currentCell.y][currentCharacter->position.currentCell.x] = _Character;
+
+		currentCharacter = currentCharacter->next;
+
 	}
-	for (int i = 0; i < CHARACTERS_COUNT; ++i)
+
+	currentCharacter = enemyCharacters.firstCharacter;
+	while (currentCharacter)
 	{
-		board->cells[enemyCharacters[i].position.currentCell.y][enemyCharacters[i].position.currentCell.x] = 255;
+		board->cells[currentCharacter->position.currentCell.y][currentCharacter->position.currentCell.x] = _Character;
+
+		currentCharacter = currentCharacter->next;
 	}
 }
-void Grassfire(Board* board, Character* character)
+Queue Grassfire(Board* board, Character* character,bool isThereCharacter)
 {
+	Queue newPath;
 
-	if (board->cells[character->position.finishCell.y][character->position.finishCell.x] == 255)
+	if (board->cells[character->position.finishCell.y][character->position.finishCell.x] == _Obstacle)
 	{
 		character->canMoveToCell = false;
-		return;
+		return newPath;
 	}
 
 	character->canMoveToCell = true;
-	character->isMoving = true;
 	board->cells[character->position.finishCell.y][character->position.finishCell.x] = 1;
 	bool S = true;
 	while (S)
@@ -535,100 +825,94 @@ void Grassfire(Board* board, Character* character)
 			for (int j = 0; j < CELLS_X; j++)
 			{
 				int A = board->cellsGrassfire[i][j];
-				if (A != 0 && A != 255)
+				if (A != 0 && A != _Obstacle && A != _Character)
 				{
-					int B = A + 1;
-					if (i > 0)
-					{
-						int x = board->cellsGrassfire[i - 1][j];
-						if (x == 0)
-						{
-							board->cells[i - 1][j] = B;
-							S = true;
-						}
-					}
-					if (j < CELLS_X - 1)
-					{
-						int x = board->cellsGrassfire[i][j + 1];
-						if (x == 0)
-						{
-							board->cells[i][j + 1] = B;
-							S = true;
-						}
-					}
-					if (i < CELLS_Y - 1)
-					{
-						int x = board->cellsGrassfire[i + 1][j];
-						if (x == 0)
-						{
-							board->cells[i + 1][j] = B;
-							S = true;
-						}
-					}
-					if (j > 0)
-					{
-						int x = board->cellsGrassfire[i][j - 1];
-						if (x == 0)
-						{
-							board->cells[i][j - 1] = B;
-							S = true;
-						}
-					}
+					for (int y = i - 1; y <= i + 1; y++)
+						for (int x = j - 1; x <= j + 1; x++)
+							if (x == j|| y == i)
+							{
+								int B = A + 1;
+								if (x >= 0 && x <= CELLS_X - 1 && y >= 0 && y <= CELLS_Y - 1)
+								{
+									int side = board->cellsGrassfire[y][x];
+									if (side == 0)
+									{
+										board->cells[y][x] = B;
+										S = true;
+									}
+								}
+							}
 				}
 			}
 		}
 	}
 
-	MoveToCell(*board, character);
+	// Recontruct Path
+	Vec2i move = character->position.currentCell;
+	Vec2i newPoint = character->position.currentCell;
 
-}
-bool PathIsCorrect(Board* board, Vec2i position)
-{
-	bool xMove = true;
-	bool yMove = true;
+	//printf("\n current pos cell x: %i y: %i \n", character->position.currentCell.x, character->position.currentCell.y);
+	//printf("\n current pos x: %i y: %i \n", (int)character->position.currentPosition.x / CELL_SIZE, (int)character->position.currentPosition.x / CELL_SIZE);
 
-	// Check the grassfire correct 
-	for (int x = position.x - 1; x <= position.x + 1; x++)
+	while ( !(move == character->position.finishCell) )
 	{
-		if (x > 0 && x < CELLS_X - 1)
+		int minValue = _Obstacle;
+		for (int y = move.y - 1; y <= move.y + 1; y++)
 		{
-			int cell = board->cells[position.y][x];
-			if (cell != 255 && cell != 0)
-			{
-				xMove = true;
-				break;
-			}
-			xMove = false;
-		}
-	}
+			for (int x = move.x - 1; x <= move.x + 1; x++)
+			{   
+				if (x == move.x || y == move.y)
+				{
+					if (x >= 0 && x <= CELLS_X - 1 && y >= 0 && y <= CELLS_Y - 1)
+					{
+						int side = board->cells[y][x];
 
-	for (int y = position.y - 1; y <= position.y + 1; y++)
-	{
-		if (y > 0 && y < CELLS_Y - 1)
+						if (side < minValue && side != 0)
+						{
+							minValue = side;
+
+							newPoint = { x, y };
+
+						}
+
+
+						/*printf("\n x: %i y: %i \n", x, y);*/
+					}
+
+				}
+			}
+		}
+
+
+		if (minValue == _Obstacle || minValue == _Character)
 		{
-			
-			int cell = board->cells[y][position.x];
-			if (cell != 255 && cell != 0)
+			return newPath;
+		}
+
+		move = newPoint;
+
+		if ((move == character->position.finishCell) && isThereCharacter)
+		{
+			printf("\n newPoint: x: %i y: %i minValue: %i \n", newPoint.x, newPoint.y, minValue);
+
+			if (!newPath.firstNode)
 			{
-				yMove = true;
-				break;
+				newPath.AddNode({ (character->position.currentCell.x * CELL_SIZE), (character->position.currentCell.y * CELL_SIZE) });
 			}
 
-			yMove = false;
+			return newPath;
 		}
+
+		newPath.AddNode({ (move.x * CELL_SIZE), (move.y * CELL_SIZE) });
+
+		/*printf("\n newPoint: x: %i y: %i minValue: %i \n", newPoint.x, newPoint.y,minValue);*/
 	}
 
-	if (!xMove && !yMove)
-	{
-		return false;
-	}
-
-	return true;
+	return newPath;
 }
-
-SDL_Texture* SetTexture(SDL_Surface* surface, SDL_Renderer* renderer, const char* fileName)
+SDL_Texture* SetTexture(SDL_Renderer* renderer, const char* fileName)
 {
-	surface = IMG_Load(fileName);
+	SDL_Surface* surface = IMG_Load(fileName);
 	if (!surface)
 	{
 		printf("Unable to load an image %s. Error: %s", fileName, IMG_GetError());
@@ -653,18 +937,25 @@ void SetRect(SDL_Rect* rect, int x, int y, int w, int h)
 	rect->w = w;
 	rect->h = h;
 }
-void DrawCharacters(Character* characters, SDL_Renderer* renderer)
+void DrawCharacters(Team characters, SDL_Renderer* renderer)
 {
-	for (int i = 0; i < CHARACTERS_COUNT; i++)
+
+	Character* currentCharacter = characters.firstCharacter;
+	while (!currentCharacter)
 	{
 		SDL_Rect rect;
-		rect.x = (int)round(characters[i].characterImage.position.x - characters[i].characterImage.size.x / 2);
-		rect.y = (int)round(characters[i].characterImage.position.y - characters[i].characterImage.size.y / 2);
-		rect.w = characters[i].characterImage.size.x;
-		rect.h = characters[i].characterImage.size.y;
+		rect.x = (int)round(currentCharacter->characterImage.position.x - currentCharacter->characterImage.size.x / 2);
+		rect.y = (int)round(currentCharacter->characterImage.position.y - currentCharacter->characterImage.size.y / 2);
+		rect.w = currentCharacter->characterImage.size.x;
+		rect.h = currentCharacter->characterImage.size.y;
 
-		DrawImage(renderer, characters[i].characterImage.texture, rect);
+		DrawImage(renderer, currentCharacter->characterImage.texture, rect);
+
+		currentCharacter = currentCharacter->next;
 	}
+
+
+
 }
 void DrawImage(SDL_Renderer* renderer, SDL_Texture* texture, SDL_Rect rect)
 {
