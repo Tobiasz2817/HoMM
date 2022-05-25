@@ -124,8 +124,6 @@ void UI::InitText(SDL_Renderer* renderer,TTF_Font* font_, SDL_Color color_, Vec2
 		return;
 	}
 
-	printf(" \n %i %i \n", text->w, text->h);
-
 	UiImage.Init(pos, { text->w , text->h }, SDL_CreateTextureFromSurface(renderer, text));
 
 	SDL_FreeSurface(text);
@@ -209,9 +207,9 @@ void Character::TakeDamage(float damage)
 		countStack = countStack_;
 	}
 
-	printf("\n count stack %i rest of life %f hp %f damage %f \n", countStack,restOflife, attributes.health, attributes.attackPower);
+	//printf("\n count stack %i rest of life %f hp %f damage %f \n", countStack,restOflife, attributes.health, attributes.attackPower);
 
-	printf("\n Count stack %i \n", countStack);
+	//printf("\n Count stack %i \n", countStack);
 }
 float Character::CheckHealth()
 {
@@ -259,7 +257,7 @@ void Team::RemoveCharacter(Character*& removeCharacter, Vec2i position)
 	if (removeCharacter->position.currentCell == position) {
 		Character* t = removeCharacter;
 		removeCharacter = removeCharacter->next;
-		printf("\nI delete from open node %i %i\n", t->position.currentCell.x, t->position.currentCell.y);
+		/*printf("\nI delete from open node %i %i\n", t->position.currentCell.x, t->position.currentCell.y);*/
 
 		free(t);
 
@@ -267,7 +265,7 @@ void Team::RemoveCharacter(Character*& removeCharacter, Vec2i position)
 	}
 
 	
-	printf("\n Clearing node... \n");
+	//printf("\n Clearing node... \n");
 
 	RemoveCharacter(removeCharacter->next, position);
 }
