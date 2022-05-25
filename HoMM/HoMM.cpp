@@ -89,8 +89,8 @@ void Image::Render(SDL_Renderer* renderer, Vec2f pos)
 	SDL_Rect rect;
 	rect.x = pos.x * size.x;
 	rect.y = pos.y * size.y;
-	rect.w = size.x;
-	rect.h = size.y;
+	rect.w = size.x - 1;
+	rect.h = size.y - 1;
 
 	SDL_RenderCopyEx(renderer, // Already know what is that
 		texture, // The image
@@ -106,10 +106,12 @@ struct UI
 	SDL_Color color;
 	TTF_Font* font;
 
-	void InitUI(SDL_Renderer* renderer, TTF_Font* font_, SDL_Color color_, Vec2f pos, const char* text_);
-	void RenderUI(SDL_Renderer* renderer, Vec2f pos, const char* text_);
+	void InitText(SDL_Renderer* renderer, TTF_Font* font_, SDL_Color color_, Vec2f pos, const char* text_);
+	void RenderText(SDL_Renderer* renderer, Vec2f pos);
+	void SetNewText(SDL_Renderer* renderer, const char* text_);
+
 };
-void UI::InitUI(SDL_Renderer* renderer,TTF_Font* font_, SDL_Color color_, Vec2f pos, const char* text_)
+void UI::InitText(SDL_Renderer* renderer,TTF_Font* font_, SDL_Color color_, Vec2f pos, const char* text_)
 {
 	font = font_;
 	color = color_;
@@ -126,10 +128,18 @@ void UI::InitUI(SDL_Renderer* renderer,TTF_Font* font_, SDL_Color color_, Vec2f 
 	SDL_FreeSurface(text);
 
 }
-void UI::RenderUI(SDL_Renderer* renderer, Vec2f pos,const char* text_)
+void UI::RenderText(SDL_Renderer* renderer, Vec2f pos)
 {
-	pos = { (pos.x * UiImage.size.y) / CELL_SIZE, (pos.y * UiImage.size.x) / CELL_SIZE };
+	pos = { (pos.x * CELL_SIZE) / UiImage.size.x, (pos.y * CELL_SIZE) / UiImage.size.y };
 	UiImage.Render(renderer, pos);
+}
+void UI::SetNewText(SDL_Renderer* renderer,const char* text_)
+{
+	SDL_Surface* surface = TTF_RenderText_Solid(font, text_, color);
+
+	UiImage.texture = SDL_CreateTextureFromSurface(renderer, surface);
+
+	SDL_FreeSurface(surface);
 }
 
 struct Character
@@ -242,43 +252,6 @@ Character* Team::GetCharacterTurn()
 }
 Character* Team::GetRanomCharacter()
 {
-	/*Vec2i ranomPos[CHARACTERS_COUNT];
-
-	Character* currentCharacter = firstCharacter;
-	if (!currentCharacter) return nullptr;
-
-	for (int i = 0; i < CHARACTERS_COUNT; i++)
-	{
-
-		ranomPos[i] = currentCharacter->position.currentCell;
-
-
-		currentCharacter = currentCharacter->next;
-		if (!currentCharacter)
-			break;
-	}
-	for (int i = 0; i < CHARACTERS_COUNT; i++)
-	{
-		printf("\n x: %i y: %i \n" ,ranomPos[i].x, ranomPos[i].y);
-	}
-
-	int indexPos = rand() % lengthTeam;
-
-	printf("\n x: %i \n",indexPos);
-
-	currentCharacter = firstCharacter;
-	while (currentCharacter)
-	{
-		if (currentCharacter->position.currentCell == ranomPos[indexPos])
-		{
-			return currentCharacter;
-		}
-
-		currentCharacter = currentCharacter->next;
-	}
-
-	printf("\n---------------\n");*/
-
 	int i = 0;
 	int indexPos = rand() % lengthTeam;
 
@@ -294,8 +267,6 @@ Character* Team::GetRanomCharacter()
 
 		i++;
 	}
-
-
 
 	return nullptr;
 }
@@ -353,13 +324,14 @@ void Team::Clear()
 }
 struct Board
 {
-	SDL_Texture* defaultTexture;
-	SDL_Texture* obstacleTexture;
+	Image defaultImage;
+	Image obstacleImage;
 
 	unsigned char cells[CELLS_Y][CELLS_X];
 	unsigned char cellsGrassfire[CELLS_Y][CELLS_X];
 	unsigned char cellsWithoutCharacters[CELLS_Y][CELLS_X];
 	Vec2i obstacles[OBSTACLES_COUNT];
+
 };
 typedef struct Board Board;
 
@@ -450,27 +422,33 @@ int main()
 		return 0;
 	}
 
-	UI team1UI;
-	team1UI.InitUI(renderer, SetFont("Gemstone.ttf", 24), { 128, 128, 128 }, { 15,15 }, "Druzyna 1: ");
 
+	char team1text[] = { "Druzyna 1:  " };
+	int lengthText1 = strlen(team1text);
+	UI team1UI;
+	team1UI.InitText(renderer, SetFont("Gemstone.ttf", 24), { 4, 4, 4 }, { 15,15 }, team1text);
+
+	char team2text[] = { "Druzyna 2:  " };
+	int lengthText2 = strlen(team2text);
+	UI team2UI;
+	team2UI.InitText(renderer, SetFont("Gemstone.ttf", 24), { 4, 4, 4 }, { CELLS_X - 1, CELLS_X - 1 }, team2text);
+
+	char winnerText[] = { "Wygrywa Druzyna:  " };
+	int winnerTextLength = strlen(winnerText);
+	UI winnerUI;
+	winnerUI.InitText(renderer, SetFont("Gemstone.ttf", 50), { 0, 0, 0 }, { CELLS_X - 1, CELLS_X - 1 }, winnerText);
 
 
 	// In a moment we will get rid of the surface as we no longer need that. But let's keep the image dimensions.
 	int tex_width = CELL_SIZE;
 	int tex_height = CELL_SIZE;
 
-	//Image characterImage;
-	//characterImage.Init({ 0,0 }, { tex_width,tex_height }, SetTexture(surface, renderer, "stickXd.png"));
-	//
-	//Image enemyImage;
-	//enemyImage.Init({ 0,0 }, { tex_width,tex_height }, SetTexture(surface, renderer, "stickEnemy.png"));
-
 	Team team1;
 	int StartPosX = 0;
 	int StartPosY = 0;
 	for (int i = 0; i < CHARACTERS_COUNT; i++)
 	{
-		team1.AddCharacter({ tex_width,tex_height }, SetTexture(renderer, "stickXd.png"), 5.f, false, { StartPosX, StartPosY } ,{ 100.f , 85.f} );
+		team1.AddCharacter({ tex_width,tex_height }, SetTexture(renderer, "stickXd.png"), 5.f, false, { StartPosX, StartPosY } ,{ 100.f , 67.f} );
 
 		StartPosY++;
 	}
@@ -481,21 +459,23 @@ int main()
 	StartPosY = 0;
 	for (int i = 0; i < CHARACTERS_COUNT; i++)
 	{
-		team2.AddCharacter({ tex_width,tex_height }, SetTexture(renderer, "stickEnemy.png"), 5.f, false, { StartPosX, StartPosY }, { 100.f , 50.f });
+		team2.AddCharacter({ tex_width,tex_height }, SetTexture(renderer, "stickEnemy.png"), 5.f, false, { StartPosX, StartPosY }, { 100.f , 66.7f });
 
 		StartPosY++;
 	}
 
-
-	printf(" %i length team 1", team1.lengthTeam);
-	printf(" %i length team 2", team2.lengthTeam);
+	team1text[lengthText1 - 1] = team1.lengthTeam + '0';
+	team1UI.SetNewText(renderer,team1text);
+	
+	team2text[lengthText2 - 1] = team2.lengthTeam + '0';
+	team2UI.SetNewText(renderer, team2text);
 
 	Board board;
 	GenerateObstacles(&board);
 	CreateBoard(&board, team1, team2);
 
-	board.obstacleTexture = SetTexture(renderer, "obstacle.png");
-	board.defaultTexture = SetTexture(renderer, "default.png");
+	board.defaultImage.Init({ 0,0 }, { tex_width , tex_height } , SetTexture(renderer, "obstacle.png"));
+	board.obstacleImage.Init({ 0,0 }, { tex_width , tex_height } , SetTexture(renderer, "default.png"));
 
 	bool posReached = true;
 
@@ -588,8 +568,11 @@ int main()
 		{
 			for (int j = 0; j < CELLS_X; ++j)
 			{
-				SetRect(&rect, j * tex_width, i * tex_height, tex_width - 2, tex_height - 2);
-				DrawImage(renderer, board.cellsWithoutCharacters[i][j] == _Obstacle ? board.obstacleTexture : board.defaultTexture, rect);
+				/*SetRect(&rect, j * tex_width, i * tex_height, tex_width - 2, tex_height - 2);
+				DrawImage(renderer, board.cellsWithoutCharacters[i][j] == _Obstacle ? board.obstacleImage.Render : board.defaultTexture, rect);*/
+
+				/*if(board.cellsWithoutCharacters[i][j] == _Obstacle)*/
+				board.cellsWithoutCharacters[i][j] == _Obstacle ? board.obstacleImage.Render(renderer, { (float)j , (float)i }) : board.defaultImage.Render(renderer, { (float)j , (float)i });
 			}
 		}
 
@@ -599,7 +582,13 @@ int main()
 		team2.DisplayCharacters(renderer);
 
 
-		team1UI.RenderUI(renderer, { 1 , 0.5f });
+		team1UI.RenderText(renderer, { 1.f , CELLS_Y - 2.f });
+		team2UI.RenderText(renderer, { CELLS_X - 4.f , CELLS_Y - 2.f });
+
+		if (gameOver)
+		{
+			winnerUI.RenderText(renderer, { (CELLS_X / 2) - 3.5f, CELLS_Y / 2 });
+		}
 		//printf("\n ------- \n");
 
 		//return 0;
@@ -609,17 +598,17 @@ int main()
 		if (!gameOver)
 		{
 
+			// Character turn
 			if (playerTurn && finalNodeReached)
 			{
-				printf(" \n Zmiana na 1 gracz do kurwy nędzy \n");
-
-
 				currentCharacter = team1.GetCharacterTurn();
 
 				if (!team1.firstCharacter)
 				{
 					// Team2 dead
 					printf("\n Game Over Win Team 2 \n");
+					winnerText[winnerTextLength - 1] = '2';
+					winnerUI.SetNewText(renderer, winnerText);
 					gameOver = true;
 					continue;
 				}
@@ -628,9 +617,6 @@ int main()
 			}
 			else if (!playerTurn && finalNodeReached)
 			{
-				printf(" \n Zmiana na 2 gracz do kurwy nędzy \n");
-
-
 				currentCharacter = team2.GetCharacterTurn();
 
 
@@ -638,6 +624,8 @@ int main()
 				{
 					// Team2 dead
 					printf("\n Game Over Win Team 1 \n");
+					winnerText[winnerTextLength - 1] = '1';
+					winnerUI.SetNewText(renderer, winnerText);
 					gameOver = true;
 					continue;
 				}
@@ -647,6 +635,7 @@ int main()
 				finalNodeReached = false;
 			}
 
+			// Pathfinding
 			if (startGrassfire)
 			{
 				// follow to team 2
@@ -659,12 +648,12 @@ int main()
 					{
 						currentCharacter->canMoveToCell = false;
 
-						printf(" First node are null ");
+						printf("\n First node are null \n");
 						startGrassfire = false;
 						continue;
 					}
 
-					printf("\n I move to cursor \n");
+					/*printf("\n I move to cursor \n");*/
 
 				}
 				else if (!playerTurn)
@@ -685,7 +674,7 @@ int main()
 					{
 						currentCharacter->canMoveToCell = false;
 
-						printf(" First node are null ");
+						/*printf(" First node are null ");*/
 						startGrassfire = true;
 						continue;
 					}
@@ -736,22 +725,30 @@ int main()
 					if (team1.ExistCharacter(currentCharacter->position.finishCell) && !playerTurn)
 					{
 						team1.TakeDamage(currentCharacter->attributes.attackPower);
-
-						printf(" \n team 1 health: %f \n", team1.CheckHealth());
+					/*	printf(" \n team 1 health: %f \n", team1.CheckHealth());*/
 						if (team1.CheckHealth() <= 0)
 						{
 							team1.DeleteFirstCharacter();
 							team1.lengthTeam -= 1;
+
+
+							team1text[lengthText1 - 1] = team1.lengthTeam + '0';
+							team1UI.SetNewText(renderer, team1text);
+
 						}
 					}
 					else if (team2.ExistCharacter(currentCharacter->position.finishCell) && playerTurn)
 					{
 						team2.TakeDamage(currentCharacter->attributes.attackPower);
-						printf(" \n team 2 health: %f \n", team2.CheckHealth());
+						/*printf(" \n team 2 health: %f \n", team2.CheckHealth());*/
 						if (team2.CheckHealth() <= 0)
 						{
 							team2.DeleteFirstCharacter();
 							team2.lengthTeam -= 1;
+
+							team2text[lengthText2 - 1] = team2.lengthTeam + '0';
+							team2UI.SetNewText(renderer, team2text);
+
 						}
 					}
 
@@ -760,11 +757,11 @@ int main()
 
 					if (!playerTurn)
 					{
-						printf("\n start Grassfire \n");
+						/*printf("\n start Grassfire \n");*/
 						startGrassfire = true;
 					}
 
-					printf("\n path is empty\n");
+					/*printf("\n path is empty\n");*/
 				}
 			}
 		}
@@ -935,7 +932,6 @@ Queue Grassfire(Board* board, Character* character,bool isThereCharacter)
 
 						}
 
-
 						/*printf("\n x: %i y: %i \n", x, y);*/
 					}
 
@@ -953,8 +949,6 @@ Queue Grassfire(Board* board, Character* character,bool isThereCharacter)
 
 		if ((move == character->position.finishCell) && isThereCharacter)
 		{
-			printf("\n newPoint: x: %i y: %i minValue: %i \n", newPoint.x, newPoint.y, minValue);
-
 			if (!newPath.firstNode)
 			{
 				newPath.AddNode({ (character->position.currentCell.x * CELL_SIZE), (character->position.currentCell.y * CELL_SIZE) });
