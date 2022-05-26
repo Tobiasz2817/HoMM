@@ -139,7 +139,7 @@ void UI::SetNewText(SDL_Renderer* renderer,const char* text_)
 	SDL_DestroyTexture(UiImage.texture);
 
 	SDL_Surface* surface = TTF_RenderText_Solid(font, text_, color);
-
+	UiImage.size = { surface->w , surface->h };
 	UiImage.texture = SDL_CreateTextureFromSurface(renderer, surface);
 
 	SDL_FreeSurface(surface);
@@ -487,7 +487,7 @@ void GenerateObstacles(Board* board);
 void GenerateRandomDestination(Character* character, Board* board, Vec2i& newPos);
 bool AreObstacleExsist(Board* board, Vec2i pos, int i);
 void GenerateRandomDestination(Character* character, Board* board);
-void Attack(SDL_Renderer* renderer, Team attackTeam, Team defenseTeam, Character* currentCharacter, Character* targetCharacter);
+void Attack(SDL_Renderer* renderer, Team* attackTeam, Team* defenseTeam, Character* currentCharacter, Character* targetCharacter);
 
 
 int main()
@@ -513,7 +513,7 @@ int main()
 	int StartPosY = 0;
 	for (int i = 0; i < CHARACTERS_COUNT; i++)
 	{
-		team1.AddCharacter({ tex_width,tex_height }, SetTexture(renderer, "stickXd.png"), 5.f, false, warriorsLength, { StartPosX, StartPosY } ,{ 45.f , 45.f , 22.5f} , renderer, SetFont("Gemstone.ttf", 18), { 128, 128, 128 });
+		team1.AddCharacter({ tex_width,tex_height }, SetTexture(renderer, "stickXd.png"), 10.f, false, warriorsLength, { StartPosX, StartPosY } ,{ 45.f , 45.f , 22.5f} , renderer, SetFont("Gemstone.ttf", 18), { 128, 128, 128 });
 
 		StartPosY++;
 	}
@@ -523,7 +523,7 @@ int main()
 	StartPosY = 0;
 	for (int i = 0; i < CHARACTERS_COUNT; i++)
 	{
-		team2.AddCharacter({ tex_width,tex_height }, SetTexture(renderer, "stickEnemy.png"), 5.f, false, archersLength, { StartPosX, StartPosY }, { 30.f , 30.f , 45.f }, renderer, SetFont("Gemstone.ttf", 18), { 128, 128, 128 });
+		team2.AddCharacter({ tex_width,tex_height }, SetTexture(renderer, "stickEnemy.png"), 10.f, false, archersLength, { StartPosX, StartPosY }, { 30.f , 30.f , 45.f }, renderer, SetFont("Gemstone.ttf", 18), { 128, 128, 128 });
 
 		StartPosY++;
 	}
@@ -641,7 +641,8 @@ int main()
 		
 		if (currentCharacter)
 		{
-			highlight.Render(renderer, { currentCharacter->position.currentPosition.x / CELL_SIZE , currentCharacter->position.currentPosition.y / CELL_SIZE });
+			if(!gameOver)
+				highlight.Render(renderer, { currentCharacter->position.currentPosition.x / CELL_SIZE , currentCharacter->position.currentPosition.y / CELL_SIZE });
 		}
 
 
@@ -786,31 +787,7 @@ int main()
 							continue;
 						}
 						
-						/*Attack(renderer, team1, team2, currentCharacter, targetCharacter);*/
-
-						targetCharacter->TakeDamage(currentCharacter->attributes.attackPower);
-					    /*printf(" \n team 1 health: %f \n", team1.CheckHealth());*/
-						if (targetCharacter->CheckHealth() <= 0)
-						{
-							team1.RemoveCharacter(team1.firstCharacter, currentCharacter->position.finishCell);
-							team1.lengthTeam -= 1;
-						}
-						else
-						{
-							currentCharacter->TakeDamage(targetCharacter->attributes.attackPower);
-							if (currentCharacter->CheckHealth() <= 0)
-							{
-								team2.RemoveCharacter(team2.firstCharacter, currentCharacter->position.currentCell);
-								team2.lengthTeam -= 1;
-							}
-							else
-							{
-								currentCharacter->characterUI.SetNewText(renderer, ToArray(currentCharacter->countStack));
-							}
-
-
-							targetCharacter->characterUI.SetNewText(renderer, ToArray(targetCharacter->countStack));
-						}
+						Attack(renderer, &team2, &team1, currentCharacter, targetCharacter);
 					}
 					else if (team2.ExistCharacter(currentCharacter->position.finishCell) && playerTurn)
 					{
@@ -822,35 +799,8 @@ int main()
 							continue;
 						}
 
-						/*Attack(renderer, team1, team2, currentCharacter, targetCharacter);*/
-
-						targetCharacter->TakeDamage(currentCharacter->attributes.attackPower);
-						/*printf(" \n team 2 health: %f \n", team2.CheckHealth());*/
-						if (targetCharacter->CheckHealth() <= 0)
-						{
-							team2.RemoveCharacter(team2.firstCharacter, currentCharacter->position.finishCell);
-							team2.lengthTeam -= 1;
-						}
-						else
-						{ 
-							currentCharacter->TakeDamage(targetCharacter->attributes.attackPower);
-							if (currentCharacter->CheckHealth() <= 0)
-							{
-								team1.RemoveCharacter(team1.firstCharacter, currentCharacter->position.currentCell);
-								team1.lengthTeam -= 1;
-							}
-							else
-							{
-								currentCharacter->characterUI.SetNewText(renderer, ToArray(currentCharacter->countStack));
-							}
-
-							targetCharacter->characterUI.SetNewText(renderer, ToArray(targetCharacter->countStack));
-						}
+						Attack(renderer, &team1, &team2, currentCharacter, targetCharacter);
 					}
-					/// <summary>
-					/// 
-					/// </summary>
-					/// <param name="board"></param>
 
 					playerTurn = !playerTurn;
 
@@ -859,8 +809,6 @@ int main()
 						/*printf("\n start Grassfire \n");*/
 						startGrassfire = true;
 					}
-
-
 
 					/*printf("\n path is empty\n");*/
 				}
@@ -921,21 +869,22 @@ char* ToArray(int number)
 
 	return numberArray;
 }
-void Attack(SDL_Renderer* renderer,Team attackTeam, Team defenseTeam, Character* currentCharacter, Character* targetCharacter)
+void Attack(SDL_Renderer* renderer,Team* attackTeam, Team* defenseTeam, Character* currentCharacter, Character* targetCharacter)
 {
 	targetCharacter->TakeDamage(currentCharacter->attributes.attackPower);
 	/*printf(" \n team 2 health: %f \n", team2.CheckHealth());*/
 	if (targetCharacter->CheckHealth() <= 0)
 	{
-		defenseTeam.RemoveCharacter(defenseTeam.firstCharacter, currentCharacter->position.finishCell);
-		defenseTeam.lengthTeam -= 1;
+		defenseTeam->RemoveCharacter(defenseTeam->firstCharacter, currentCharacter->position.finishCell);
+		defenseTeam->lengthTeam -= 1;
 	}
 	else
 	{
 		currentCharacter->TakeDamage(targetCharacter->attributes.attackPower);
 		if (currentCharacter->CheckHealth() <= 0)
 		{
-			attackTeam.RemoveCharacter(attackTeam.firstCharacter, currentCharacter->position.currentCell);
+			attackTeam->RemoveCharacter(attackTeam->firstCharacter, currentCharacter->position.currentCell);
+			attackTeam->lengthTeam -= 1;
 		}
 		else
 		{
