@@ -400,7 +400,18 @@ struct Board
 	unsigned char cellsWithoutCharacters[CELLS_Y][CELLS_X];
 	Vec2i obstacles[OBSTACLES_COUNT];
 
+	void Render(SDL_Renderer* renderer);
 };
+void Board::Render(SDL_Renderer* renderer)
+{
+	for (int i = 0; i < CELLS_Y; ++i)
+	{
+		for (int j = 0; j < CELLS_X; ++j)
+		{
+			cellsWithoutCharacters[i][j] == _Obstacle ? obstacleImage.Render(renderer, { (float)j , (float)i }) : defaultImage.Render(renderer, { (float)j , (float)i });
+		}
+	}
+}
 typedef struct Board Board;
 
 struct ListNode
@@ -476,6 +487,7 @@ void GenerateObstacles(Board* board);
 void GenerateRandomDestination(Character* character, Board* board, Vec2i& newPos);
 bool AreObstacleExsist(Board* board, Vec2i pos, int i);
 void GenerateRandomDestination(Character* character, Board* board);
+void Attack(SDL_Renderer* renderer, Team attackTeam, Team defenseTeam, Character* currentCharacter, Character* targetCharacter);
 
 
 int main()
@@ -635,15 +647,7 @@ int main()
 
 		SDL_RenderClear(renderer);
 
-		for (int i = 0; i < CELLS_Y; ++i)
-		{
-			for (int j = 0; j < CELLS_X; ++j)
-			{
-				board.cellsWithoutCharacters[i][j] == _Obstacle ? board.obstacleImage.Render(renderer, { (float)j , (float)i }) : board.defaultImage.Render(renderer, { (float)j , (float)i });
-			}
-		}
-
-		
+		board.Render(renderer);
 
 		team1.DisplayCharacters(renderer);
 		team2.DisplayCharacters(renderer);
@@ -678,10 +682,6 @@ int main()
 
 				if (!team1.firstCharacter)
 				{
-					// Team2 dead
-					printf("\n Game Over Win Team 2 \n");
-					winnerText[winnerTextLength - 1] = '2';
-					winnerUI.SetNewText(renderer, winnerText);
 					gameOver = true;
 					continue;
 				}
@@ -692,18 +692,11 @@ int main()
 			{
 				currentCharacter = team2.GetCharacterTurn();
 
-
 				if (!team2.firstCharacter)
 				{
-					// Team2 dead
-					printf("\n Game Over Win Team 1 \n");
-					winnerText[winnerTextLength - 1] = '1';
-					winnerUI.SetNewText(renderer, winnerText);
 					gameOver = true;
 					continue;
 				}
-
-
 
 				finalNodeReached = false;
 			}
@@ -795,7 +788,7 @@ int main()
 					finalNodeReached = true;
 					currentCharacter->canMoveToCell = false;
 
-					if (team1.ExistCharacter(currentCharacter->position.finishCell) && !playerTurn)
+					if (!playerTurn)
 					{
 						Character* targetCharacter = team1.GetCharacterByPosition(currentCharacter->position.finishCell);
 						
@@ -805,35 +798,8 @@ int main()
 							done = true;
 							continue;
 						}
-						targetCharacter->TakeDamage(currentCharacter->attributes.attackPower);
-					    /*printf(" \n team 1 health: %f \n", team1.CheckHealth());*/
-						if (targetCharacter->CheckHealth() <= 0)
-						{
-							team1.RemoveCharacter(team1.firstCharacter, currentCharacter->position.finishCell);
-							team1.lengthTeam -= 1;
-
-							team1text[lengthText1 - 1] = team1.lengthTeam + '0';
-							team1UI.SetNewText(renderer, team1text);
-						}
-						else
-						{
-							currentCharacter->TakeDamage(targetCharacter->attributes.attackPower);
-							if (currentCharacter->CheckHealth() <= 0)
-							{
-								team2.RemoveCharacter(team2.firstCharacter, currentCharacter->position.currentCell);
-								team2.lengthTeam -= 1;
-
-								team2text[lengthText2 - 1] = team2.lengthTeam + '0';
-								team2UI.SetNewText(renderer, team2text);
-							}
-							else
-							{
-								currentCharacter->characterUI.SetNewText(renderer, ToArray(currentCharacter->countStack));
-							}
-
-
-							targetCharacter->characterUI.SetNewText(renderer, ToArray(targetCharacter->countStack));
-						}
+						
+						Attack(renderer, team2, team1, currentCharacter, targetCharacter);
 					}
 					else if (team2.ExistCharacter(currentCharacter->position.finishCell) && playerTurn)
 					{
@@ -844,35 +810,8 @@ int main()
 							done = true;
 							continue;
 						}
-						targetCharacter->TakeDamage(currentCharacter->attributes.attackPower);
-						/*printf(" \n team 2 health: %f \n", team2.CheckHealth());*/
-						if (targetCharacter->CheckHealth() <= 0)
-						{
-							team2.RemoveCharacter(team2.firstCharacter, currentCharacter->position.finishCell);
-							team2.lengthTeam -= 1;
 
-							team2text[lengthText2 - 1] = team2.lengthTeam + '0';
-							team2UI.SetNewText(renderer, team2text);
-
-						}
-						else
-						{
-							currentCharacter->TakeDamage(targetCharacter->attributes.attackPower);
-							if (currentCharacter->CheckHealth() <= 0)
-							{
-								team1.RemoveCharacter(team1.firstCharacter, currentCharacter->position.currentCell);
-								team1.lengthTeam -= 1;
-
-								team1text[lengthText1 - 1] = team1.lengthTeam + '0';
-								team1UI.SetNewText(renderer, team1text);
-							}
-							else
-							{
-								currentCharacter->characterUI.SetNewText(renderer, ToArray(currentCharacter->countStack));
-							}
-
-							targetCharacter->characterUI.SetNewText(renderer, ToArray(targetCharacter->countStack));
-						}
+						Attack(renderer, team1, team2, currentCharacter, targetCharacter);
 					}
 
 
@@ -939,6 +878,30 @@ char* ToArray(int number)
 	}
 
 	return numberArray;
+}
+void Attack(SDL_Renderer* renderer,Team attackTeam, Team defenseTeam, Character* currentCharacter, Character* targetCharacter)
+{
+	targetCharacter->TakeDamage(currentCharacter->attributes.attackPower);
+	/*printf(" \n team 2 health: %f \n", team2.CheckHealth());*/
+	if (targetCharacter->CheckHealth() <= 0)
+	{
+		defenseTeam.RemoveCharacter(defenseTeam.firstCharacter, currentCharacter->position.finishCell);
+		defenseTeam.lengthTeam -= 1;
+	}
+	else
+	{
+		currentCharacter->TakeDamage(targetCharacter->attributes.attackPower);
+		if (currentCharacter->CheckHealth() <= 0)
+		{
+			attackTeam.RemoveCharacter(attackTeam.firstCharacter, currentCharacter->position.currentCell);
+		}
+		else
+		{
+			currentCharacter->characterUI.SetNewText(renderer, ToArray(currentCharacter->countStack));
+		}
+
+		targetCharacter->characterUI.SetNewText(renderer, ToArray(targetCharacter->countStack));
+	}
 }
 void GenerateObstacles(Board* board)
 {
