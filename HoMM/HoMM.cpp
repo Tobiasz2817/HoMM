@@ -501,22 +501,6 @@ int main()
 		return 0;
 	}
 
-	char team1text[] = { "Druzyna 1:  " };
-	int lengthText1 = strlen(team1text);
-	UI team1UI;
-	team1UI.InitText(renderer, SetFont("Gemstone.ttf", 24), { 4, 4, 4 }, { 15,15 }, team1text);
-
-	char team2text[] = { "Druzyna 2:  " };
-	int lengthText2 = strlen(team2text);
-	UI team2UI;
-	team2UI.InitText(renderer, SetFont("Gemstone.ttf", 24), { 4, 4, 4 }, { CELLS_X - 1, CELLS_X - 1 }, team2text);
-
-	char winnerText[] = { "Wygrywa Druzyna:  " };
-	int winnerTextLength = strlen(winnerText);
-	UI winnerUI;
-	winnerUI.InitText(renderer, SetFont("Gemstone.ttf", 50), { 0, 0, 0 }, { CELLS_X - 1, CELLS_X - 1 }, winnerText);
-
-
 	// In a moment we will get rid of the surface as we no longer need that. But let's keep the image dimensions.
 	int tex_width = CELL_SIZE;
 	int tex_height = CELL_SIZE;
@@ -544,11 +528,14 @@ int main()
 		StartPosY++;
 	}
 
-	team1text[lengthText1 - 1] = team1.lengthTeam + '0';
-	team1UI.SetNewText(renderer,team1text);
-	
-	team2text[lengthText2 - 1] = team2.lengthTeam + '0';
-	team2UI.SetNewText(renderer, team2text);
+	UI team1UI;
+	team1UI.InitText(renderer, SetFont("Gemstone.ttf", 24), { 4, 4, 4 }, { 15,15 }, ToArray(team1.lengthTeam));
+
+	UI team2UI;
+	team2UI.InitText(renderer, SetFont("Gemstone.ttf", 24), { 4, 4, 4 }, { CELLS_X - 1, CELLS_X - 1 }, ToArray(team2.lengthTeam));
+
+	UI winnerUI;
+	winnerUI.InitText(renderer, SetFont("Gemstone.ttf", 50), { 0, 0, 0 }, { CELLS_X - 1, CELLS_X - 1 }, " ");
 
 	Board board;
 	GenerateObstacles(&board);
@@ -799,7 +786,31 @@ int main()
 							continue;
 						}
 						
-						Attack(renderer, team2, team1, currentCharacter, targetCharacter);
+						/*Attack(renderer, team1, team2, currentCharacter, targetCharacter);*/
+
+						targetCharacter->TakeDamage(currentCharacter->attributes.attackPower);
+					    /*printf(" \n team 1 health: %f \n", team1.CheckHealth());*/
+						if (targetCharacter->CheckHealth() <= 0)
+						{
+							team1.RemoveCharacter(team1.firstCharacter, currentCharacter->position.finishCell);
+							team1.lengthTeam -= 1;
+						}
+						else
+						{
+							currentCharacter->TakeDamage(targetCharacter->attributes.attackPower);
+							if (currentCharacter->CheckHealth() <= 0)
+							{
+								team2.RemoveCharacter(team2.firstCharacter, currentCharacter->position.currentCell);
+								team2.lengthTeam -= 1;
+							}
+							else
+							{
+								currentCharacter->characterUI.SetNewText(renderer, ToArray(currentCharacter->countStack));
+							}
+
+
+							targetCharacter->characterUI.SetNewText(renderer, ToArray(targetCharacter->countStack));
+						}
 					}
 					else if (team2.ExistCharacter(currentCharacter->position.finishCell) && playerTurn)
 					{
@@ -811,7 +822,30 @@ int main()
 							continue;
 						}
 
-						Attack(renderer, team1, team2, currentCharacter, targetCharacter);
+						/*Attack(renderer, team1, team2, currentCharacter, targetCharacter);*/
+
+						targetCharacter->TakeDamage(currentCharacter->attributes.attackPower);
+						/*printf(" \n team 2 health: %f \n", team2.CheckHealth());*/
+						if (targetCharacter->CheckHealth() <= 0)
+						{
+							team2.RemoveCharacter(team2.firstCharacter, currentCharacter->position.finishCell);
+							team2.lengthTeam -= 1;
+						}
+						else
+						{
+							currentCharacter->TakeDamage(targetCharacter->attributes.attackPower);
+							if (currentCharacter->CheckHealth() <= 0)
+							{
+								team1.RemoveCharacter(team1.firstCharacter, currentCharacter->position.currentCell);
+								team1.lengthTeam -= 1;
+							}
+							else
+							{
+								currentCharacter->characterUI.SetNewText(renderer, ToArray(currentCharacter->countStack));
+							}
+
+							targetCharacter->characterUI.SetNewText(renderer, ToArray(targetCharacter->countStack));
+						}
 					}
 
 
@@ -823,22 +857,27 @@ int main()
 						startGrassfire = true;
 					}
 
+
+
 					/*printf("\n path is empty\n");*/
 				}
 
-			}
+				if (team1.lengthTeam == 0)
+				{
+					winnerUI.SetNewText(renderer, { "Wygrywa Druzyna:  2" });
+					gameOver = true;
+				}
+				else if (team2.lengthTeam == 0)
+				{
+					winnerUI.SetNewText(renderer, { "Wygrywa Druzyna:  1" });
+					gameOver = true;
+				}
+				else
+				{
+					team1UI.SetNewText(renderer, ToArray(team1.lengthTeam));
+					team2UI.SetNewText(renderer, ToArray(team2.lengthTeam));
+				}
 
-			if (team1.lengthTeam == 0)
-			{
-				winnerText[winnerTextLength - 1] = '2';
-				winnerUI.SetNewText(renderer, winnerText);
-				gameOver = true;
-			}
-			else if (team2.lengthTeam == 0)
-			{
-				winnerText[winnerTextLength - 1] = '1';
-				winnerUI.SetNewText(renderer, winnerText);
-				gameOver = true;
 			}
 		}
 
