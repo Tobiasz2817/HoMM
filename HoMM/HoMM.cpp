@@ -832,7 +832,7 @@ int main()
 							team2.lengthTeam -= 1;
 						}
 						else
-						{
+						{ 
 							currentCharacter->TakeDamage(targetCharacter->attributes.attackPower);
 							if (currentCharacter->CheckHealth() <= 0)
 							{
