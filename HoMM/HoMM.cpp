@@ -847,7 +847,10 @@ int main()
 							targetCharacter->characterUI.SetNewText(renderer, ToArray(targetCharacter->countStack));
 						}
 					}
-
+					/// <summary>
+					/// 
+					/// </summary>
+					/// <param name="board"></param>
 
 					playerTurn = !playerTurn;
 
