@@ -54,9 +54,11 @@ enum World
 
 struct Attributes
 {
-	float healthOneCharacter;
 	float health;
 	float attackPower;
+
+	float healthOneCharacter;
+	float attackPowerOneCharacter;
 };
 
 struct Position
@@ -112,7 +114,7 @@ struct UI
 	void SetNewText(SDL_Renderer* renderer, const char* text_);
 
 };
-void UI::InitText(SDL_Renderer* renderer,TTF_Font* font_, SDL_Color color_, Vec2f pos, const char* text_)
+void UI::InitText(SDL_Renderer* renderer, TTF_Font* font_, SDL_Color color_, Vec2f pos, const char* text_)
 {
 	font = font_;
 	color = color_;
@@ -134,7 +136,7 @@ void UI::RenderText(SDL_Renderer* renderer, Vec2f pos)
 	/*pos = { (pos.x * CELL_SIZE) / UiImage.size.x, (pos.y * CELL_SIZE) / UiImage.size.y };*/
 	UiImage.Render(renderer, pos);
 }
-void UI::SetNewText(SDL_Renderer* renderer,const char* text_)
+void UI::SetNewText(SDL_Renderer* renderer, const char* text_)
 {
 	SDL_DestroyTexture(UiImage.texture);
 
@@ -160,7 +162,7 @@ struct Character
 
 	Character* next;
 
-	void Init(Vec2i size, SDL_Texture* texture, int speedPlayer, bool canMoveToCel_,int countStack_, Vec2i startPos, Attributes attributes);
+	void Init(Vec2i size, SDL_Texture* texture, int speedPlayer, bool canMoveToCel_, int countStack_, Vec2i startPos, Attributes attributes);
 	void InitUI(SDL_Renderer* renderer, TTF_Font* font_, SDL_Color color_, Vec2f pos, const char* text_);
 	void Render(SDL_Renderer* renderer);
 	void TakeDamage(float damage);
@@ -174,21 +176,21 @@ void Character::Init(Vec2i size, SDL_Texture* texture, int speedPlayer, bool can
 
 	speed = speedPlayer;
 	countStack = countStack_;
-	attributes = { attributesCharacter.health , countStack_ * attributesCharacter.health, attributesCharacter.attackPower };
+	attributes = { countStack_ * attributesCharacter.health,  countStack_ * attributesCharacter.attackPower, attributesCharacter.health , attributesCharacter.attackPower };
 	canMoveToCell = canMoveToCel_;
 
 	position.currentCell = startPos;
 	position.currentPosition = { (ufloat)(startPos.x * CELL_SIZE) , (ufloat)(startPos.y * CELL_SIZE) };
 
-	characterImage.Init( { position.currentPosition.x , position.currentPosition.y } , size, texture);
+	characterImage.Init({ position.currentPosition.x , position.currentPosition.y }, size, texture);
 }
 void Character::InitUI(SDL_Renderer* renderer, TTF_Font* font_, SDL_Color color_, Vec2f pos, const char* text_)
 {
-	characterUI.InitText(renderer, font_,color_,pos,text_);
+	characterUI.InitText(renderer, font_, color_, pos, text_);
 }
 void Character::Render(SDL_Renderer* renderer)
 {
-	characterImage.Render(renderer, { position.currentPosition.x / CELL_SIZE , position.currentPosition.y / CELL_SIZE } );
+	characterImage.Render(renderer, { position.currentPosition.x / CELL_SIZE , position.currentPosition.y / CELL_SIZE });
 }
 void Character::TakeDamage(float damage)
 {
@@ -202,10 +204,12 @@ void Character::TakeDamage(float damage)
 	{
 		countStack = countStack_ + 1;
 	}
-	else 
+	else
 	{
 		countStack = countStack_;
 	}
+
+	attributes.attackPower = countStack * attributes.attackPowerOneCharacter;
 
 	//printf("\n count stack %i rest of life %f hp %f damage %f \n", countStack,restOflife, attributes.health, attributes.attackPower);
 
@@ -225,11 +229,11 @@ struct Team
 
 	void DeleteFirstCharacter();
 	void RemoveCharacter(Character*& removeCharacter, Vec2i position);
-	void RemoveCharacter(Character*& removeCharacter);
+	void RemoveCharacter(Character* removeCharacter);
 	void AddCharacter(Vec2i size, SDL_Texture* texture, int speedPlayer, bool canMoveToCel_, int countStack_, Vec2i startPos, Attributes attributes, SDL_Renderer* renderer, TTF_Font* font_, SDL_Color color_);
 
 	void DisplayCharacters(SDL_Renderer* renderer);
-	
+
 	Character* GetCharacterTurn();
 	Character* GetRanomCharacter();
 	Character* GetCharacterByPosition(Vec2i positionCharacter);
@@ -243,7 +247,7 @@ void Team::DeleteFirstCharacter()
 {
 	Character* next_character = firstCharacter->next;
 	free(firstCharacter);
-	firstCharacter = next_character; 
+	firstCharacter = next_character;
 }
 void Team::RemoveCharacter(Character*& removeCharacter, Vec2i position)
 {
@@ -264,19 +268,55 @@ void Team::RemoveCharacter(Character*& removeCharacter, Vec2i position)
 		return;
 	}
 
-	
+
 	//printf("\n Clearing node... \n");
 
 	RemoveCharacter(removeCharacter->next, position);
 }
-void Team::RemoveCharacter(Character*& removeCharacter)
+void Team::RemoveCharacter(Character* removeCharacter)
 {
-	struct Character* temp;
-	temp = removeCharacter->next;
-	removeCharacter->next = temp->next;
-	free(temp);
+	if (!firstCharacter) return;
+
+	if (!firstCharacter->next)
+	{
+		if (removeCharacter == firstCharacter)
+		{
+			DeleteFirstCharacter();
+		}
+
+		return;
+	}
+
+	if (removeCharacter == firstCharacter)
+	{
+		DeleteFirstCharacter();
+		return;
+	}
+
+	Character* currentNode = firstCharacter;
+	while (currentNode->next->next)
+	{
+		if (currentNode->next == removeCharacter)
+		{
+			Character* next_node = currentNode->next->next;
+			free(currentNode->next);
+
+			currentNode->next = next_node;
+			return;
+		}
+
+
+		currentNode = currentNode->next;
+	}
+
+	if (removeCharacter == currentNode->next)
+	{
+		Character* last_node = currentNode->next;
+		free(last_node);
+		currentNode->next = nullptr;
+	}
 }
-void Team::AddCharacter(Vec2i size, SDL_Texture* texture, int speedPlayer, bool canMoveToCel_, int countStack_, Vec2i startPos, Attributes attributes,SDL_Renderer* renderer, TTF_Font* font_, SDL_Color color_)
+void Team::AddCharacter(Vec2i size, SDL_Texture* texture, int speedPlayer, bool canMoveToCel_, int countStack_, Vec2i startPos, Attributes attributes, SDL_Renderer* renderer, TTF_Font* font_, SDL_Color color_)
 {
 	Character* new_character = (Character*)malloc(sizeof(Character));
 	new_character->next = nullptr;
@@ -299,6 +339,13 @@ void Team::AddCharacter(Vec2i size, SDL_Texture* texture, int speedPlayer, bool 
 }
 Character* Team::GetCharacterTurn()
 {
+
+	if (!firstCharacter)
+	{
+		printf("\n first node ale null \n");
+		return nullptr;
+	}
+
 	Character* currentCharacter = firstCharacter;
 	while (currentCharacter)
 	{
@@ -306,21 +353,26 @@ Character* Team::GetCharacterTurn()
 		{
 			currentCharacter->myTurn = false;
 
-			return currentCharacter;
+			break;
 		}
-
 		currentCharacter = currentCharacter->next;
 	}
 
-	currentCharacter = firstCharacter;
-	while (currentCharacter)
+	if (currentCharacter)
 	{
-		currentCharacter->myTurn = true;
+		if (!currentCharacter->next)
+		{
+			Character* turn = firstCharacter;
+			while (turn)
+			{
+				turn->myTurn = true;
 
-		currentCharacter = currentCharacter->next;
+				turn = turn->next;
+			}
+		}
 	}
 
-	return firstCharacter;
+	return currentCharacter;
 }
 Character* Team::GetRanomCharacter()
 {
@@ -363,7 +415,7 @@ void Team::DisplayCharacters(SDL_Renderer* renderer)
 	while (currentCharacter)
 	{
 		currentCharacter->Render(renderer);
-		currentCharacter->characterUI.RenderText(renderer, { (currentCharacter->position.currentPosition.x + 4.f) / currentCharacter->characterUI.UiImage.size.x ,  ( (currentCharacter->position.currentPosition.y + 35.f) / currentCharacter->characterUI.UiImage.size.y) });
+		currentCharacter->characterUI.RenderText(renderer, { (currentCharacter->position.currentPosition.x + 4.f) / currentCharacter->characterUI.UiImage.size.x ,  ((currentCharacter->position.currentPosition.y + 35.f) / currentCharacter->characterUI.UiImage.size.y) });
 
 		currentCharacter = currentCharacter->next;
 	}
@@ -444,6 +496,8 @@ void Queue::Clear()
 	{
 		DeleteFirstNode();
 	}
+
+	firstNode = nullptr;
 }
 
 void Queue::AddNode(Vec2i nodePosition)
@@ -506,14 +560,14 @@ int main()
 	int tex_height = CELL_SIZE;
 
 	char warriorsLength = 10;
-	int archersLength = 2;
+	int archersLength = 10;
 
 	Team team1;
 	int StartPosX = 0;
 	int StartPosY = 0;
 	for (int i = 0; i < CHARACTERS_COUNT; i++)
 	{
-		team1.AddCharacter({ tex_width,tex_height }, SetTexture(renderer, "stickXd.png"), 10.f, false, warriorsLength, { StartPosX, StartPosY } ,{ 45.f , 45.f , 22.5f} , renderer, SetFont("Gemstone.ttf", 18), { 128, 128, 128 });
+		team1.AddCharacter({ tex_width,tex_height }, SetTexture(renderer, "stickXd.png"), 10.f, false, warriorsLength, { StartPosX, StartPosY }, { 500.f , 72.5f }, renderer, SetFont("Gemstone.ttf", 18), { 128, 128, 128 });
 
 		StartPosY++;
 	}
@@ -523,26 +577,20 @@ int main()
 	StartPosY = 0;
 	for (int i = 0; i < CHARACTERS_COUNT; i++)
 	{
-		team2.AddCharacter({ tex_width,tex_height }, SetTexture(renderer, "stickEnemy.png"), 10.f, false, archersLength, { StartPosX, StartPosY }, { 30.f , 30.f , 45.f }, renderer, SetFont("Gemstone.ttf", 18), { 128, 128, 128 });
+		team2.AddCharacter({ tex_width,tex_height }, SetTexture(renderer, "stickEnemy.png"), 10.f, false, archersLength, { StartPosX, StartPosY }, { 300.f , 112.5f }, renderer, SetFont("Gemstone.ttf", 18), { 128, 128, 128 });
 
 		StartPosY++;
 	}
 
-	UI team1UI;
-	team1UI.InitText(renderer, SetFont("Gemstone.ttf", 24), { 4, 4, 4 }, { 15,15 }, ToArray(team1.lengthTeam));
-
-	UI team2UI;
-	team2UI.InitText(renderer, SetFont("Gemstone.ttf", 24), { 4, 4, 4 }, { CELLS_X - 1, CELLS_X - 1 }, ToArray(team2.lengthTeam));
-
 	UI winnerUI;
-	winnerUI.InitText(renderer, SetFont("Gemstone.ttf", 50), { 0, 0, 0 }, { CELLS_X - 1, CELLS_X - 1 }, " ");
+	winnerUI.InitText(renderer, SetFont("Gemstone.ttf", 50), { 79, 128, 51 }, { CELLS_X - 1, CELLS_X - 1 }, " ");
 
 	Board board;
 	GenerateObstacles(&board);
 	CreateBoard(&board, team1, team2);
 
-	board.defaultImage.Init({ 0,0 }, { tex_width , tex_height } , SetTexture(renderer, "obstacle.png"));
-	board.obstacleImage.Init({ 0,0 }, { tex_width , tex_height } , SetTexture(renderer, "default.png"));
+	board.defaultImage.Init({ 0,0 }, { tex_width , tex_height }, SetTexture(renderer, "obstacle.png"));
+	board.obstacleImage.Init({ 0,0 }, { tex_width , tex_height }, SetTexture(renderer, "default.png"));
 
 	bool posReached = true;
 
@@ -551,11 +599,10 @@ int main()
 	bool playerTurn = true;
 	bool finalNodeReached = false;
 
-	int currentCharacterIdx = 0;
 	Character* currentCharacter = team1.GetCharacterTurn();
 
 	Image highlight;
-	highlight.Init( { (float)currentCharacter->position.currentCell.x ,(float)currentCharacter->position.currentCell.y }, { tex_width , tex_height }, SetTexture(renderer, "highlight.png"));
+	highlight.Init({ (float)currentCharacter->position.currentCell.x ,(float)currentCharacter->position.currentCell.y }, { tex_width , tex_height }, SetTexture(renderer, "highlight.png"));
 
 	int maxDestinyReached = 1;
 
@@ -564,7 +611,7 @@ int main()
 
 	Queue path;
 	Vec2i point = currentCharacter->position.currentCell;
-	Vec2f direction = { point.x , point.y } ;
+	Vec2f direction = { point.x , point.y };
 
 	SDL_Event sdl_event;
 	SDL_Rect rect;
@@ -611,16 +658,16 @@ int main()
 			{
 				switch (sdl_event.button.button) // Which key?
 				{
-					case SDL_BUTTON_LEFT:
-					{
-						int mousePosX, mousePosY = 0;
-						SDL_GetMouseState(&mousePosX, &mousePosY);
+				case SDL_BUTTON_LEFT:
+				{
+					int mousePosX, mousePosY = 0;
+					SDL_GetMouseState(&mousePosX, &mousePosY);
 
-						currentCharacter->position.finishCell = { mousePosX / tex_width , mousePosY / tex_height };
+					currentCharacter->position.finishCell = { mousePosX / tex_width , mousePosY / tex_height };
 
-						currentCharacter->canMoveToCell = true;
-						startGrassfire = true;	
-					}
+					currentCharacter->canMoveToCell = true;
+					startGrassfire = true;
+				}
 				break;
 				default:
 					break;
@@ -638,25 +685,16 @@ int main()
 
 		team1.DisplayCharacters(renderer);
 		team2.DisplayCharacters(renderer);
-		
+
 		if (currentCharacter)
 		{
-			if(!gameOver)
+			if (!gameOver)
 				highlight.Render(renderer, { currentCharacter->position.currentPosition.x / CELL_SIZE , currentCharacter->position.currentPosition.y / CELL_SIZE });
 		}
 
-
-		team1UI.RenderText(renderer, { (10.f * CELL_SIZE) / team1UI.UiImage.size.x ,  ((((float)CELLS_Y - 1.f) * CELL_SIZE) / team1UI.UiImage.size.y) });
-		team2UI.RenderText(renderer, { (2.f * CELL_SIZE) / team2UI.UiImage.size.x ,  ((((float)CELLS_Y - 1.f) * CELL_SIZE) / team2UI.UiImage.size.y) });
-
-		if (gameOver)
-		{
+		if(gameOver)
 			winnerUI.RenderText(renderer, { ((((float)CELLS_X - 8.f) / 2) * CELL_SIZE) / winnerUI.UiImage.size.x ,  ((((float)(CELLS_Y / 2) - 1.f) * CELL_SIZE) / winnerUI.UiImage.size.y) });
-		}
 		
-		//printf("\n ------- \n");
-
-		//return 0;
 
 		SDL_RenderPresent(renderer);
 
@@ -668,25 +706,20 @@ int main()
 			{
 				currentCharacter = team1.GetCharacterTurn();
 
-				if (!team1.firstCharacter)
-				{
-					gameOver = true;
-					continue;
-				}
-
 				finalNodeReached = false;
 			}
 			else if (!playerTurn && finalNodeReached)
 			{
+
 				currentCharacter = team2.GetCharacterTurn();
 
-				if (!team2.firstCharacter)
-				{
-					gameOver = true;
-					continue;
-				}
-
 				finalNodeReached = false;
+			}
+
+			if (!currentCharacter)
+			{
+				gameOver = true;
+				continue;
 			}
 
 			// Pathfinding
@@ -697,41 +730,15 @@ int main()
 				{
 					CreateBoard(&board, team1, team2);
 					path = Grassfire(&board, currentCharacter, team2.ExistCharacter(currentCharacter->position.finishCell));
-
-					if (!path.firstNode)
-					{
-						currentCharacter->canMoveToCell = false;
-
-						printf("\n First node are null \n");
-						startGrassfire = false;
-						continue;
-					}
-
-					/*printf("\n I move to cursor \n");*/
-
 				}
 				else if (!playerTurn)
 				{
 					CreateBoard(&board, team1, team2);
 
 					Character* positionRandomCharacter = team1.GetRanomCharacter();
-					if (!positionRandomCharacter)
-					{
-						gameOver = true;
-						continue;
-					}
 					currentCharacter->position.finishCell = positionRandomCharacter->position.currentCell;
 
 					path = Grassfire(&board, currentCharacter, team1.ExistCharacter(currentCharacter->position.finishCell));
-
-					if (!path.firstNode)
-					{
-						currentCharacter->canMoveToCell = false;
-
-						/*printf(" First node are null ");*/
-						startGrassfire = true;
-						continue;
-					}
 
 					currentCharacter->canMoveToCell = true;
 				}
@@ -740,10 +747,15 @@ int main()
 					currentCharacter->canMoveToCell = false;
 				}
 
+				if (!path.firstNode)
+				{
+					currentCharacter->canMoveToCell = false;
+					startGrassfire = true;
+					continue;
+				}
+
 				startGrassfire = false;
 			}
-
-			
 
 
 			if (currentCharacter->canMoveToCell)
@@ -779,25 +791,12 @@ int main()
 					if (!playerTurn)
 					{
 						Character* targetCharacter = team1.GetCharacterByPosition(currentCharacter->position.finishCell);
-						
-						if (!targetCharacter)
-						{
-							printf("\n Target character are null \n");
-							done = true;
-							continue;
-						}
-						
+
 						Attack(renderer, &team2, &team1, currentCharacter, targetCharacter);
 					}
 					else if (team2.ExistCharacter(currentCharacter->position.finishCell) && playerTurn)
 					{
 						Character* targetCharacter = team2.GetCharacterByPosition(currentCharacter->position.finishCell);
-						if (!targetCharacter)
-						{
-							printf("\n Target character are null \n");
-							done = true;
-							continue;
-						}
 
 						Attack(renderer, &team1, &team2, currentCharacter, targetCharacter);
 					}
@@ -806,11 +805,8 @@ int main()
 
 					if (!playerTurn)
 					{
-						/*printf("\n start Grassfire \n");*/
 						startGrassfire = true;
 					}
-
-					/*printf("\n path is empty\n");*/
 				}
 
 				if (team1.lengthTeam == 0)
@@ -823,12 +819,6 @@ int main()
 					winnerUI.SetNewText(renderer, { "Wygrywa Druzyna:  1" });
 					gameOver = true;
 				}
-				else
-				{
-					team1UI.SetNewText(renderer, ToArray(team1.lengthTeam));
-					team2UI.SetNewText(renderer, ToArray(team2.lengthTeam));
-				}
-
 			}
 		}
 
@@ -839,7 +829,7 @@ int main()
 
 	path.Clear();
 
-	TTF_CloseFont(team1UI.font);
+	TTF_CloseFont(winnerUI.font);
 	TTF_Quit();
 
 	// Shutting down the renderer
@@ -869,13 +859,14 @@ char* ToArray(int number)
 
 	return numberArray;
 }
-void Attack(SDL_Renderer* renderer,Team* attackTeam, Team* defenseTeam, Character* currentCharacter, Character* targetCharacter)
+void Attack(SDL_Renderer* renderer, Team* attackTeam, Team* defenseTeam, Character* currentCharacter, Character* targetCharacter)
 {
 	targetCharacter->TakeDamage(currentCharacter->attributes.attackPower);
 	/*printf(" \n team 2 health: %f \n", team2.CheckHealth());*/
 	if (targetCharacter->CheckHealth() <= 0)
 	{
-		defenseTeam->RemoveCharacter(defenseTeam->firstCharacter, currentCharacter->position.finishCell);
+		defenseTeam->RemoveCharacter(targetCharacter);
+
 		defenseTeam->lengthTeam -= 1;
 	}
 	else
@@ -883,15 +874,17 @@ void Attack(SDL_Renderer* renderer,Team* attackTeam, Team* defenseTeam, Characte
 		currentCharacter->TakeDamage(targetCharacter->attributes.attackPower);
 		if (currentCharacter->CheckHealth() <= 0)
 		{
-			attackTeam->RemoveCharacter(attackTeam->firstCharacter, currentCharacter->position.currentCell);
+			attackTeam->RemoveCharacter(currentCharacter);
 			attackTeam->lengthTeam -= 1;
 		}
 		else
 		{
-			currentCharacter->characterUI.SetNewText(renderer, ToArray(currentCharacter->countStack));
+			if (currentCharacter)
+				currentCharacter->characterUI.SetNewText(renderer, ToArray(currentCharacter->countStack));
 		}
 
-		targetCharacter->characterUI.SetNewText(renderer, ToArray(targetCharacter->countStack));
+		if (targetCharacter)
+			targetCharacter->characterUI.SetNewText(renderer, ToArray(targetCharacter->countStack));
 	}
 }
 void GenerateObstacles(Board* board)
@@ -910,7 +903,7 @@ void GenerateObstacles(Board* board)
 	{
 		int x = rand() % totalX + min.x;
 		int y = rand() % totalY + min.y;
-		while (AreObstacleExsist(board, { x ,y } , i))
+		while (AreObstacleExsist(board, { x ,y }, i))
 		{
 			x = rand() % totalX + min.x;
 			y = rand() % totalY + min.y;
@@ -918,7 +911,7 @@ void GenerateObstacles(Board* board)
 
 
 		board->obstacles[i] = { x , y };
-		
+
 	}
 
 }
@@ -964,7 +957,7 @@ void CreateBoard(Board* board, Team playerCharacters, Team enemyCharacters)
 		currentCharacter = currentCharacter->next;
 	}
 }
-Queue Grassfire(Board* board, Character* character,bool isThereCharacter)
+Queue Grassfire(Board* board, Character* character, bool isThereCharacter)
 {
 	Queue newPath;
 
@@ -990,7 +983,7 @@ Queue Grassfire(Board* board, Character* character,bool isThereCharacter)
 				{
 					for (int y = i - 1; y <= i + 1; y++)
 						for (int x = j - 1; x <= j + 1; x++)
-							if (x == j|| y == i)
+							if (x == j || y == i)
 							{
 								int B = A + 1;
 								if (x >= 0 && x <= CELLS_X - 1 && y >= 0 && y <= CELLS_Y - 1)
@@ -1015,13 +1008,13 @@ Queue Grassfire(Board* board, Character* character,bool isThereCharacter)
 	//printf("\n current pos cell x: %i y: %i \n", character->position.currentCell.x, character->position.currentCell.y);
 	//printf("\n current pos x: %i y: %i \n", (int)character->position.currentPosition.x / CELL_SIZE, (int)character->position.currentPosition.x / CELL_SIZE);
 
-	while ( !(move == character->position.finishCell) )
+	while (!(move == character->position.finishCell))
 	{
 		int minValue = _Obstacle;
 		for (int y = move.y - 1; y <= move.y + 1; y++)
 		{
 			for (int x = move.x - 1; x <= move.x + 1; x++)
-			{   
+			{
 				if (x == move.x || y == move.y)
 				{
 					if (x >= 0 && x <= CELLS_X - 1 && y >= 0 && y <= CELLS_Y - 1)
